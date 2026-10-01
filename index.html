@@ -572,7 +572,7 @@ header.top{border-bottom:3px solid var(--logo1)}
 .carpnote{grid-column:1/-1;font-size:.8rem;background:color-mix(in srgb,var(--logo2) 7%,var(--panel));border:1px dashed color-mix(in srgb,var(--logo2) 40%,transparent);border-radius:3px;padding:6px 8px}
 th.sort{cursor:pointer;user-select:none;white-space:normal}
 th.sort:hover{background:color-mix(in srgb,#000 12%,var(--th))}
-th .thsub{display:block;font-size:.72em;font-weight:400;opacity:.8;letter-spacing:0;text-transform:none;white-space:normal;line-height:1.15;margin-top:1px}
+th .thsub{display:block;font-size:.95em;font-weight:600;color:#fff;opacity:1;letter-spacing:0;text-transform:none;white-space:normal;line-height:1.15;margin-top:1px}
 th.sort .si{margin-left:3px;font-size:.7em;opacity:.55} th.sort.on .si{opacity:1}
 th.sort.on{box-shadow:inset 0 -3px 0 var(--logo2)}
 #sortP{max-width:210px}
@@ -1242,7 +1242,10 @@ const proyById = id => S.proyectos.find(p => p.id === id);
 const mandanteDe = d => proyById(d.proyectoId)?.mandante || '(sin proyecto)';
 function pillEstado(e) { const m = {'Pagada':'e-pag','Pendiente':'e-pen','Pago parcial':'e-par','Vencida':'e-can','Anulada':'e-noa'}; return `<span class="pill ${m[e]||'p-grey'}">${esc(e||'—')}</span>`; }
 // "Facturar" se muestra como FACTURAR (factura) o EMITIR BOLETA (boleta) según el documento del proyecto
-function estadoTxt(e, doc) { return e === 'Facturar' ? (doc === 'B' ? 'Emitir boleta' : doc === 'F' ? 'Facturar' : 'Facturar / Emitir boleta') : e; }
+function estadoTxt(e, doc) {
+  if (e === 'Facturar') return doc === 'B' ? 'Emitir boleta' : doc === 'F' ? 'Facturar' : 'Facturar / Emitir boleta';
+  if (e === 'Facturado') return doc === 'B' ? 'Boleta emitida' : doc === 'F' ? 'Facturado' : 'Facturado / Boleta emitida';
+  return e; }
 // Franja de totales por estado (sobre la tabla de proyectos): N° de proyectos y UF, con el color de cada estado; clic = filtrar
 function resumenEstados() {
   const items = [];
@@ -1327,10 +1330,10 @@ function cobroPend(p, m) {   // Entregado → FACTURAR · Solicitar HES/WE/HAS �
   const fact = Math.max(m.porFacturar, 0), pag = Math.max(m.porPagar, 0);
   if (p.estado === 'Solicitar HES/WE/HAS') { const falta = [['HES', p.hes], ['WE', p.we], ['HAS', p.has]].filter(x => !x[1]).map(x => x[0]);
     return {tipo: 'hes', fact, pag: 0, t: falta.length ? 'falta ' + falta.join(' · ') : 'referencias recibidas: facturar'}; }
-  if (p.estado === 'Entregado' || p.estado === 'Facturar') return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : (pag > 0.5 ? {tipo: 'cob', fact: 0, pag, t: clp(pag) + ' por cobrar'} : {tipo: 'fact', fact: 0, pag: 0, t: 'emitir factura / boleta'});
+  // COBRAR solo en estado Facturado / Boleta emitida
+  if (p.estado === 'Entregado' || p.estado === 'Facturar') return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : (pag > 0.5 ? null : {tipo: 'fact', fact: 0, pag: 0, t: p.documento === 'B' ? 'emitir boleta' : 'emitir factura'});
   if (p.estado === 'Facturado') return {tipo: 'cob', fact: 0, pag, t: pag > 0.5 ? clp(pag) + ' por cobrar' : 'confirmar pago y marcar «Pagado»'};
-  if (fact <= 0.005 && pag <= 0.5) return null;
-  return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : {tipo: 'cob', fact: 0, pag, t: clp(pag) + ' por cobrar'};
+  return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : null;
 }
 const SORT_P = {
   codigo:   {l: 'Código',                v: p => p.codigo || ''},
@@ -1353,7 +1356,7 @@ const SORT_P = {
 try { S.sortP = JSON.parse(localStorage.getItem('ing_sortP') || 'null'); } catch (e) {}
 function sortTh(key, label, cls = '', sub = '') { const on = S.sortP && S.sortP.k === key;
   return `<th class="sort ${cls} ${on ? 'on' : ''}" data-sort="${key}" title="Ordenar por ${esc(SORT_P[key].l)}">${label}<span class="si">${on ? (S.sortP.d > 0 ? '▲' : '▼') : '↕'}</span>${sub ? `<span class="thsub">${sub}</span>` : ''}</th>`; }
-const SUB_CI = 'factura c/IVA · boleta bruto', SUB_SI = 'factura s/IVA · boleta bruto';
+const SUB_CI = 'c/IVA · bruto', SUB_SI = 's/IVA · bruto';
 function vProyectos() {
   const q = S.q.toLowerCase();
   let rows = S.proyectos.slice().sort((a, b) => (b.anio - a.anio) || ((b.nGen||0) - (a.nGen||0)));
@@ -1386,23 +1389,23 @@ function vProyectos() {
     if (HS.length) h += `<div class="alerta hes">📋 <b>SOLICITAR HES/WE/HAS: ${HS.length} proyecto${HS.length===1?'':'s'}</b> — pedir al cliente las referencias para facturar: ${links(HS)}</div>`;
     const PG = S.proyectos.map(p => { const m = proyMetrics(p); return {p, m, t: pagarTerc(p, m)}; }).filter(x => x.t);
     if (PG.length) h += `<div class="alerta pag">🟠 <b>PAGAR A TERCEROS: ${PG.length} proyecto${PG.length===1?'':'s'} ya cobrado${PG.length===1?'':'s'}</b> — ${uf(PG.reduce((a,x)=>a+x.m.tercPendUF,0))} UF (${clp(PG.reduce((a,x)=>a+x.m.tercPendCLP,0))}) que no son tuyos: ${links(PG)}</div>`;
-    if (C.length) h += `<div class="alerta cob">💲 <b>COBRAR: ${C.length} proyecto${C.length===1?'':'s'} facturado${C.length===1?'':'s'}</b> — ${clp(C.reduce((a,x)=>a+x.c.pag,0))} por cobrar: ${links(C)}</div>`;
+    if (C.length) h += `<div class="alerta cob">💲 <b>COBRAR: ${C.length} proyecto${C.length===1?'':'s'} con factura o boleta emitida</b> — ${clp(C.reduce((a,x)=>a+x.c.pag,0))} por cobrar: ${links(C)}</div>`;
     return h; })()}
   <p class="small muted">${S.proyectos.length} registrados · ${canc.length} cancelados (${uf(canc.reduce((s,p)=>s+(p.montoUF||0),0))} UF). Haga clic en una fila para editarla.</p>
   ${resumenEstados()}
   ${rows.length ? `<div class="pcards">${rows.map(cardProy).join('')}</div><div class="tbl wide"><table>
-    <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto (UF)','n cen',SUB_CI)}${sortTh('montoCLP','Monto ($)','n',SUB_CI)}${sortTh('propio','Propio (UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado (UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar (UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
+    <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto&nbsp;(UF)','n cen',SUB_CI)}${sortTh('montoCLP','Monto&nbsp;($)','n',SUB_CI)}${sortTh('propio','Propio&nbsp;(UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado&nbsp;(UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar&nbsp;(UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
     <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Terminado','Suspendido','Cancelado','No adjudicado'].includes(p.estado);
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''}" data-edit="proyectos" data-id="${p.id}">
       <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}</td><td class="pname">${esc(projName(p))}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
       <td class="keep">${p.documento==='F'?'<span class="pill p-i">Factura</span>':'<span class="pill p-g">Boleta</span>'}</td>
       <td class="n cen">${uf(p.montoUF)}</td><td class="n">${clp(m.totalCLP)}</td><td class="n cen prop" title="${p.documento==='F'?'Neto sin IVA menos costo neto de terceros':'Bruto menos terceros'}">${uf(m.propioUF)}${m.tercUF > 0 ? `<span class="fing">terceros ${uf(m.tercUF)}</span>` : ''}</td><td class="nw ${late?'late':''}">${fdate(p.entrega)}</td>
       <td class="keep">${pillProy(p.estado, p.documento)}${(() => { const cp = cobroPend(p, m); const pg = pagarTerc(p, m); const pgH = pg ? `<div class="cobrar pag" title="El cliente ya pagó: pagar al tercero">🟠 PAGAR${pg.map(t => `<span>${uf(t.montoUF)} UF · ${esc(t.nombre||'tercero')}</span>`).join('')}</div>` : '';
-      return odcHtml(p) + pgH + (cp ? (cp.tipo === 'hes' ? `<div class="cobrar hes" title="Solicitar al cliente HES / WE / HAS para poder facturar">📋 SOLICITAR HES/WE/HAS<span>${esc(cp.t)}</span></div>` : cp.tipo === 'fact' ? `<div class="cobrar fac nd" data-newdoc="${p.documento==='F'?'facturas':'boletas'}" data-proy="${p.id}" title="Clic: emitir ${p.documento==='F'?'factura':'boleta'} de este proyecto">📄 ${p.documento==='F'?'FACTURAR':'EMITIR BOLETA'}<span>${esc(cp.t)}</span></div>` : `<div class="cobrar" title="Facturado: falta cobrar">💲 COBRAR<span>${esc(cp.t)}</span></div>`) : ''); })()}${p.estado==='Cancelado'?`<div class="small muted">${fdate(p.fechaCancel)} · ${esc(p.motivoCancel||'sin motivo')}</div>`:''}</td>
+      return odcHtml(p) + pgH + (cp ? (cp.tipo === 'hes' ? `<div class="cobrar hes" title="Solicitar al cliente HES / WE / HAS para poder facturar">📋 SOLICITAR HES/WE/HAS<span>${esc(cp.t)}</span></div>` : cp.tipo === 'fact' ? `<div class="cobrar fac nd" data-newdoc="${p.documento==='F'?'facturas':'boletas'}" data-proy="${p.id}" title="Clic: emitir ${p.documento==='F'?'factura':'boleta'} de este proyecto">📄 ${p.documento==='F'?'FACTURAR':'EMITIR BOLETA'}<span>${esc(cp.t)}</span></div>` : `<div class="cobrar" title="Facturado / boleta emitida: falta cobrar">💲 COBRAR<span>${esc(cp.t)}</span></div>`) : ''); })()}${p.estado==='Cancelado'?`<div class="small muted">${fdate(p.fechaCancel)} · ${esc(p.motivoCancel||'sin motivo')}</div>`:''}</td>
       <td class="n c-fac ${m.facturadoUF>0.005?'on':''}">${uf(m.facturadoUF)}</td><td class="n c-pf ${m.porFacturar>0.005?'on':''}" style="${m.porFacturar<-0.005?'color:var(--bad)':''}">${uf(m.porFacturar)}</td><td class="n c-pct">${m.pctF==null?'—':`${pct(m.pctF)}<span class="pbar"><i style="width:${Math.max(0,Math.min(100,m.pctF*100))}%"></i></span>`}</td>
       <td class="n c-pag ${m.pagado>0?'on':''}">${clp(m.pagado)}</td><td class="n c-pp ${m.porPagar>0?'on':''}">${clp(m.porPagar)}</td></tr>`; }).join('')}</tbody></table></div>`
   : `<div class="empty">${S.proyectos.length ? 'Ningún proyecto coincide con el filtro.' : 'Aún no hay proyectos. Use “+ Nuevo proyecto” para registrar el primero; el código se asigna solo.'}</div>`}
-  <p class="note">Colores: <span class="pill e-fac">Facturado</span> <span style="color:#c2410c;font-weight:700">por facturar</span> · <span style="color:#6d28d9;font-weight:700">% facturado</span> · <span style="color:#15803d;font-weight:700">pagado</span> · <span style="color:#b91c1c;font-weight:700">por pagar</span> — etapas: <span class="pill e-ofe">En oferta</span> <span class="pill e-adj">Adjudicado</span> <span class="pill e-odc">Solicitar ODC</span> <span class="pill e-eje">En ejecución</span> <span class="pill e-ent">Entregado</span> <span class="pill e-hes">Solicitar HES/WE/HAS</span> <span class="pill e-factu">Facturar</span> <span class="pill e-factu">Emitir boleta</span> <span class="pill e-fac">Facturado</span> <span class="pill e-pag">Pagado</span> <span class="pill e-ter">Terminado</span></p>
+  <p class="note">Colores: <span class="pill e-fac">Facturado</span> <span style="color:#c2410c;font-weight:700">por facturar</span> · <span style="color:#6d28d9;font-weight:700">% facturado</span> · <span style="color:#15803d;font-weight:700">pagado</span> · <span style="color:#b91c1c;font-weight:700">por pagar</span> — etapas: <span class="pill e-ofe">En oferta</span> <span class="pill e-adj">Adjudicado</span> <span class="pill e-odc">Solicitar ODC</span> <span class="pill e-eje">En ejecución</span> <span class="pill e-ent">Entregado</span> <span class="pill e-hes">Solicitar HES/WE/HAS</span> <span class="pill e-factu">Facturar</span> <span class="pill e-factu">Emitir boleta</span> <span class="pill e-fac">Facturado</span> <span class="pill e-fac">Boleta emitida</span> <span class="pill e-pag">Pagado</span> <span class="pill e-ter">Terminado</span></p>
   <p class="note">📋 SOLICITAR ODC: pedir al cliente la orden de compra · 📄 FACTURAR / EMITIR BOLETA: proyecto entregado con saldo por documentar (clic en el aviso para emitir) · 📋 SOLICITAR HES/WE/HAS: pedir las referencias del cliente antes de facturar (indica cuáles faltan) · 💲 COBRAR: proyecto facturado con pagos pendientes. Al marcarlo «Pagado» deja de cobrarse. Fecha de entrega en rojo: atrasada.</p>
   <p class="note">Código: SIGLA del mandante – correlativo del mandante – correlativo general del año – año (2 dígitos). Se asigna al crear el proyecto; se reasigna si cambia el mandante o el año, o si el proyecto se mueve a otro archivo (queda registrado el código anterior). Un proyecto cancelado conserva su código, su saldo por facturar pasa a cero y lo ya facturado o cobrado se mantiene.</p>`;
 }
@@ -2237,7 +2240,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261001-1924. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261001-1932. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
