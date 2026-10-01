@@ -572,6 +572,7 @@ header.top{border-bottom:3px solid var(--logo1)}
 .carpnote{grid-column:1/-1;font-size:.8rem;background:color-mix(in srgb,var(--logo2) 7%,var(--panel));border:1px dashed color-mix(in srgb,var(--logo2) 40%,transparent);border-radius:3px;padding:6px 8px}
 th.sort{cursor:pointer;user-select:none;white-space:normal}
 th.sort:hover{background:color-mix(in srgb,#000 12%,var(--th))}
+th .thsub{display:block;font-size:.72em;font-weight:400;opacity:.8;letter-spacing:0;text-transform:none;white-space:normal;line-height:1.15;margin-top:1px}
 th.sort .si{margin-left:3px;font-size:.7em;opacity:.55} th.sort.on .si{opacity:1}
 th.sort.on{box-shadow:inset 0 -3px 0 var(--logo2)}
 #sortP{max-width:210px}
@@ -1273,7 +1274,7 @@ function render() {
   const fn = {proyectos: vProyectos, facturas: vFacturas, boletas: vBoletas, resumen: vResumen, cartera: vCartera, impuesto: vImpuesto, clientes: vClientes, parametros: vParametros}[S.tab] || vProyectos;
   const focusId = document.activeElement?.id, selS = document.activeElement?.selectionStart;
   $('#pane').innerHTML = fn();
-  bindPane();
+  bindPane(); { const f = document.getElementById('flHead'); if (f) f.remove(); } setTimeout(stickHead, 0);
   if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); try { if (selS != null) el.setSelectionRange(selS, selS); } catch (e) {} } }
 }
 function renderKpis() {
@@ -1350,8 +1351,9 @@ const SORT_P = {
   porPagar: {l: 'Por pagar ($)',         v: (p, m) => m.porPagar},
 };
 try { S.sortP = JSON.parse(localStorage.getItem('ing_sortP') || 'null'); } catch (e) {}
-function sortTh(key, label, cls = '') { const on = S.sortP && S.sortP.k === key;
-  return `<th class="sort ${cls} ${on ? 'on' : ''}" data-sort="${key}" title="Ordenar por ${esc(SORT_P[key].l)}">${label}<span class="si">${on ? (S.sortP.d > 0 ? '▲' : '▼') : '↕'}</span></th>`; }
+function sortTh(key, label, cls = '', sub = '') { const on = S.sortP && S.sortP.k === key;
+  return `<th class="sort ${cls} ${on ? 'on' : ''}" data-sort="${key}" title="Ordenar por ${esc(SORT_P[key].l)}">${label}<span class="si">${on ? (S.sortP.d > 0 ? '▲' : '▼') : '↕'}</span>${sub ? `<span class="thsub">${sub}</span>` : ''}</th>`; }
+const SUB_CI = 'factura c/IVA · boleta bruto', SUB_SI = 'factura s/IVA · boleta bruto';
 function vProyectos() {
   const q = S.q.toLowerCase();
   let rows = S.proyectos.slice().sort((a, b) => (b.anio - a.anio) || ((b.nGen||0) - (a.nGen||0)));
@@ -1389,7 +1391,7 @@ function vProyectos() {
   <p class="small muted">${S.proyectos.length} registrados · ${canc.length} cancelados (${uf(canc.reduce((s,p)=>s+(p.montoUF||0),0))} UF). Haga clic en una fila para editarla.</p>
   ${resumenEstados()}
   ${rows.length ? `<div class="pcards">${rows.map(cardProy).join('')}</div><div class="tbl wide"><table>
-    <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto (UF)','n cen')}${sortTh('montoCLP','Monto ($)','n')}${sortTh('propio','Propio (UF)','n cen')}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado (UF)','n h-fac')}${sortTh('porFact','Por facturar (UF)','n h-pf')}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag')}${sortTh('porPagar','Status: por pagar','n h-pp')}</tr></thead>
+    <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto (UF)','n cen',SUB_CI)}${sortTh('montoCLP','Monto ($)','n',SUB_CI)}${sortTh('propio','Propio (UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado (UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar (UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
     <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Terminado','Suspendido','Cancelado','No adjudicado'].includes(p.estado);
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''}" data-edit="proyectos" data-id="${p.id}">
       <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}</td><td class="pname">${esc(projName(p))}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
@@ -1627,6 +1629,29 @@ function vParametros() {
 }
 
 /* ------------------------------------------------------------------ interacción */
+/* Encabezado de la tabla de proyectos fijo bajo la cinta superior al desplazarse (copia flotante sincronizada:
+   la tabla vive en un contenedor con desplazamiento horizontal, donde position:sticky no funciona) */
+function stickHead() {
+  let fl = document.getElementById('flHead');
+  const tbl = document.querySelector('#pane .tbl.wide'), tb = tbl && tbl.querySelector('table'), th = tb && tb.tHead;
+  if (!th || !tbl.offsetParent) { if (fl) fl.style.display = 'none'; return; }
+  const st = document.querySelector('.stickTop'), top = st ? st.getBoundingClientRect().bottom : 0;
+  const r = tb.getBoundingClientRect(), hh = th.getBoundingClientRect().height;
+  if (!(r.top < top && r.bottom > top + hh + 20)) { if (fl) fl.style.display = 'none'; return; }
+  if (!fl || fl.dataset.for !== String(tb.dataset.stk || '')) {
+    if (fl) fl.remove(); tb.dataset.stk = String(Date.now());
+    fl = document.createElement('div'); fl.id = 'flHead'; fl.dataset.for = tb.dataset.stk;
+    fl.innerHTML = '<table></table>'; fl.firstChild.appendChild(th.cloneNode(true)); document.body.appendChild(fl);
+    fl.addEventListener('click', e => { const c = e.target.closest('th'); if (!c) return; const i = [...c.parentNode.children].indexOf(c); const o = th.rows[0].cells[i]; if (o) o.click(); });
+  }
+  const w = tbl.getBoundingClientRect(), ft = fl.firstChild;
+  fl.style.cssText = `display:block;position:fixed;z-index:14;top:${top}px;left:${w.left}px;width:${tbl.clientWidth}px;overflow:hidden;box-shadow:0 6px 8px -8px rgba(0,0,0,.35)`;
+  ft.className = tb.className; ft.style.width = tb.offsetWidth + 'px'; ft.style.transform = `translateX(${-tbl.scrollLeft}px)`; ft.style.tableLayout = 'fixed';
+  const src = th.rows[0].cells, dst = ft.tHead.rows[0].cells; for (let i = 0; i < src.length; i++) { const wd = src[i].getBoundingClientRect().width + 'px'; dst[i].style.width = wd; dst[i].style.minWidth = wd; dst[i].style.maxWidth = wd; }
+  if (!tbl.dataset.stkScroll) { tbl.dataset.stkScroll = '1'; tbl.addEventListener('scroll', stickHead, {passive:true}); }
+}
+window.addEventListener('scroll', stickHead, {passive:true});
+window.addEventListener('resize', stickHead);
 function bindPane() {
   const pane = $('#pane');
   const q = $('#q', pane); if (q) q.oninput = () => { S.q = q.value; render(); };
@@ -2212,7 +2237,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261001-1708. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261001-1924. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
