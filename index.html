@@ -634,6 +634,8 @@ td.prop{color:var(--ok);font-weight:700}
   body.print-doc #docOut .docout-box{box-shadow:none;padding:0;max-width:none}
   body.print-doc #docOut .noprint{display:none !important}
   body.print-doc .doccard{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.print-doc .rp-sheet{-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:10px}
+  body.print-doc .rp-tab tr{break-inside:avoid}
 }
 
 /* ---- colores por estado: etapa del proyecto y columnas facturado / por facturar / pagado / por pagar ---- */
@@ -652,12 +654,22 @@ td.c-pp{background:color-mix(in srgb,#dc2626 6%,transparent)!important} td.c-pp.
 :root[data-theme="dark"] td.c-fac.on{color:#7fb2f0} :root[data-theme="dark"] td.c-pf.on{color:#fb923c} :root[data-theme="dark"] td.c-pag.on{color:#4ade80} :root[data-theme="dark"] td.c-pp.on{color:#f87171} :root[data-theme="dark"] td.c-pct{color:#c4a5ff}
 
 .pill.e-odc{background:#e0e7ff;color:#3730a3;border:1px solid #6366f1}
+.rp-box{max-width:1000px!important;width:96vw}
+.rp-sheet{background:#fff;color:#1a1a1a;padding:12px 14px;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px}
+.rp-head{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:2px solid #1d4f91;padding-bottom:6px;margin-bottom:8px}
+.rp-tit{font-size:16px;font-weight:700;color:#1d4f91}
+.rp-tab{width:100%;border-collapse:collapse} .rp-tab th{background:#1d4f91;color:#fff;font-size:11px;text-align:left;padding:5px 6px}
+.rp-tab td{padding:4px 6px;border-bottom:1px solid #e3e3e3;vertical-align:top} .rp-tab .n{text-align:right;white-space:nowrap;font-family:'IBM Plex Mono',ui-monospace,monospace}
+.rp-tab .rp-c{font-family:'IBM Plex Mono',ui-monospace,monospace;white-space:nowrap;color:#1d4f91} .rp-m{font-size:10px;color:#666}
+.rp-tab .rp-t td{background:#eef4fb;font-weight:700;border-top:2px solid #1d4f91}
+.rp-sheet .pill{font-size:10px;padding:1px 6px;animation:none!important;box-shadow:none!important}
+@media (max-width:640px){.rp-tab .rp-d,.rp-tab th:nth-child(3){display:none} .rp-sheet{font-size:11px;padding:8px}}
 .resumen-est{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:4px 0 8px;font-size:11px}
 .resumen-est .rs-tit{color:var(--muted, #6b7280);font-weight:600;margin-right:2px}
 .rs-chip{display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid transparent;border-radius:12px;padding:1px 4px 1px 1px;cursor:pointer;font:inherit;color:inherit}
 .rs-chip:hover{border-color:var(--line)}
 .rs-chip.on{border-color:var(--ing);background:color-mix(in srgb,var(--ing) 8%,transparent)}
-.rs-chip .pill{font-size:10px;padding:1px 6px;animation:none;box-shadow:none}
+.rs-chip .pill{font-size:10px;padding:1px 6px;animation:none!important;box-shadow:none!important}
 .rs-chip b{font-size:11px} .rs-chip i{font-style:normal;color:var(--muted, #6b7280);font-size:10px}
 .rs-m{display:inline-flex;flex-direction:column;line-height:1.1;text-align:left} .rs-m .rs-clp{font-size:9.5px}
 .rs-clear{color:var(--muted, #6b7280);padding:1px 6px}
@@ -1349,6 +1361,7 @@ function vProyectos() {
   if (q) rows = rows.filter(p => [p.codigo, p.mandante, p.proyecto, p.descripcion, p.contacto, p.oc, p.hes, p.has, p.we].join(' ').toLowerCase().includes(q));
   if (S.fEstado) rows = rows.filter(p => p.estado === S.fEstado);
   if (S.fDoc) rows = rows.filter(p => p.documento === S.fDoc);
+  S._rowsP = rows;
   const canc = S.proyectos.filter(p => p.estado === 'Cancelado');
   return `
   <div class="bar">
@@ -1358,6 +1371,7 @@ function vProyectos() {
     <select id="sortP" title="Ordenar la tabla"><option value="">Orden: más recientes</option>${Object.keys(SORT_P).map(k => `<option value="${k}" ${S.sortP && S.sortP.k === k ? 'selected' : ''}>Orden: ${SORT_P[k].l}</option>`).join('')}</select>
     <button class="btn ghost mini" id="sortDir" title="Invertir el orden" ${S.sortP ? '' : 'disabled'}>${S.sortP && S.sortP.d < 0 ? '▼ desc.' : '▲ asc.'}</button>
     <button class="btn" data-act="newProy">+ Nuevo proyecto</button>
+    <button class="btn ghost" data-act="resumenProy" title="Resumen de proyectos (montos y estado) para ver o imprimir">🖨 Resumen</button>
     <button class="btn ghost" data-act="csv" data-what="proyectos">Exportar CSV</button>
   </div>
   ${(() => { const L = S.proyectos.map(p => ({p, c: cobroPend(p, proyMetrics(p))})).filter(x => x.c);
@@ -1656,6 +1670,7 @@ async function act(a, b) {
   if (a === 'newFac') return openEditor('facturas', null);
   if (a === 'newBol') return openEditor('boletas', null);
   if (a === 'csv') return exportCSV(b.dataset.what);
+  if (a === 'resumenProy') return resumenProyectos();
   if (a === 'backup') { const data = snapshotData(); const fn = `respaldo_POWER_ING_Estructural_${today()}.json`;
     if (downloads) { try { await downloads.save({filename: fn, data}); } catch (e) { if (e.code !== 'declined') toast('No se pudo descargar (' + e.code + ')'); } return; }
     try { const url = URL.createObjectURL(new Blob([data], {type:'application/json'})); const aEl = document.createElement('a'); aEl.href = url; aEl.download = fn; document.body.appendChild(aEl); aEl.click(); aEl.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); } catch (e) { toast('No se pudo descargar'); } return; }
@@ -1766,6 +1781,41 @@ function docDatos(kind) {
   const k = isF ? calcFactura(d) : calcBoleta(d);
   return {isF, p, k, d, numero: val('numero'), fecha: val('fecha'), glosa: (val('glosa') || '').trim(), tipo: val('tipoCobro'), pctv: p && p.montoUF > 0 && d.montoUF > 0 ? (d.montoUF/p.montoUF*100).toLocaleString('es-CL', {maximumFractionDigits: 1}) : '',
     estado: val('estado'), fechaPago: val('fechaPago'), retiene: val('retiene'), obs: (val('obs') || '').trim()};
+}
+/* ---------- Resumen de proyectos (vista + impresión): nombre, montos bruto/líquido (boleta) o sin/con IVA (factura) y estado.
+   Usa los proyectos visibles en la tabla (con el mismo filtro y orden). ---------- */
+function resumenProyectos() {
+  const rows = (S._rowsP || S.proyectos).filter(p => p.estado !== 'Cancelado' || S.fEstado === 'Cancelado');
+  const iva = P().iva;
+  const L = rows.map(p => { const v = p.valorUF || P().ufRef, tot = Math.round((p.montoUF || 0) * v);
+    if (p.documento === 'F') { const neto = Math.round(tot / (1 + iva)); return {p, a: neto, b: tot}; }
+    const r = rateFor(+p.anio || +(today().slice(0, 4))); return {p, a: tot, b: tot - Math.round(tot * r)}; });
+  const sum = (arr, k) => arr.reduce((x, y) => x + y[k], 0);
+  const LF = L.filter(x => x.p.documento === 'F'), LB = L.filter(x => x.p.documento !== 'F');
+  const filtro = [S.fEstado ? 'Estado: ' + estadoTxt(S.fEstado) : '', S.fDoc ? (S.fDoc === 'F' ? 'Solo facturas' : 'Solo boletas') : '', S.q ? 'Búsqueda: «' + S.q + '»' : ''].filter(Boolean).join(' · ') || 'Todos los proyectos (sin cancelados)';
+  const tr = x => `<tr><td class="rp-c">${esc(x.p.codigo || '')}</td><td><b>${esc(projName(x.p))}</b><div class="rp-m">${esc(x.p.mandante || '')}</div></td>
+    <td class="rp-d">${x.p.documento === 'F' ? 'Factura' : 'Boleta'}</td><td class="n">${uf(x.p.montoUF || 0)}</td>
+    <td class="n">${clp(x.a)}<div class="rp-m">${x.p.documento === 'F' ? 'sin IVA' : 'bruto'}</div></td><td class="n"><b>${clp(x.b)}</b><div class="rp-m">${x.p.documento === 'F' ? 'con IVA' : 'líquido'}</div></td>
+    <td>${pillProy(x.p.estado, x.p.documento)}</td></tr>`;
+  const tot = (lbl, arr, la, lb) => arr.length ? `<tr class="rp-t"><td colspan="3">${lbl} (${arr.length})</td><td class="n">${uf(arr.reduce((a, x) => a + (x.p.montoUF || 0), 0))}</td><td class="n">${clp(sum(arr, 'a'))}<div class="rp-m">${la}</div></td><td class="n">${clp(sum(arr, 'b'))}<div class="rp-m">${lb}</div></td><td></td></tr>` : '';
+  const logo = document.querySelector('img.logo');
+  let host = document.getElementById('docOut'); if (host) host.remove();
+  host = document.createElement('div'); host.id = 'docOut';
+  host.innerHTML = `<div class="docout-bg"><div class="docout-box rp-box">
+    <div class="docout-bar noprint"><b>Resumen de proyectos</b><span style="flex:1"></span>
+      <button class="btn" id="rpPrint">🖨 Imprimir / Guardar PDF</button><button class="btn ghost" id="rpClose">Cerrar</button></div>
+    <div class="rp-sheet">
+      <div class="rp-head">${logo ? `<img src="${logo.src}" alt="ING Estructural" style="height:40px;width:auto">` : ''}<div style="text-align:right"><div class="rp-tit">RESUMEN DE PROYECTOS</div><div class="rp-m">${esc(filtro)} · ${fdate(today())} · UF ref. ${clp(P().ufRef).replace('$', '$ ')}</div></div></div>
+      <table class="rp-tab"><thead><tr><th>Código</th><th>Proyecto / mandante</th><th>Doc.</th><th class="n">Monto UF</th><th class="n">Bruto / sin IVA</th><th class="n">Líquido / con IVA</th><th>Estado</th></tr></thead>
+      <tbody>${L.map(tr).join('') || '<tr><td colspan="7" class="rp-m">Sin proyectos para el filtro actual.</td></tr>'}</tbody>
+      <tfoot>${tot('Total facturas', LF, 'sin IVA', 'con IVA')}${tot('Total boletas', LB, 'bruto', 'líquido')}</tfoot></table>
+      <div class="rp-m" style="margin-top:6px">Montos en $ calculados con el valor UF de cada proyecto (o UF de referencia). Factura: sin IVA = total/(1+IVA). Boleta: líquido = bruto − retención del año del proyecto.</div>
+    </div></div></div>`;
+  document.body.appendChild(host);
+  const cerrar = () => { host.remove(); document.body.classList.remove('print-doc'); };
+  host.querySelector('#rpClose').onclick = cerrar;
+  host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
+  host.querySelector('#rpPrint').onclick = () => { document.body.classList.add('print-doc'); const off = () => { document.body.classList.remove('print-doc'); window.removeEventListener('afterprint', off); }; window.addEventListener('afterprint', off); window.print(); setTimeout(off, 1500); };
 }
 function docCardHtml(D) {
   const c = D.isF ? '#1d4f91' : '#2f6b2f', bg = D.isF ? '#eef4fb' : '#eef7ee';
@@ -2162,7 +2212,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261001-1358. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261001-1708. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
