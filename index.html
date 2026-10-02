@@ -655,7 +655,9 @@ td.c-pp{background:color-mix(in srgb,#dc2626 6%,transparent)!important} td.c-pp.
 :root[data-theme="dark"] td.c-fac.on{color:#7fb2f0} :root[data-theme="dark"] td.c-pf.on{color:#fb923c} :root[data-theme="dark"] td.c-pag.on{color:#4ade80} :root[data-theme="dark"] td.c-pp.on{color:#f87171} :root[data-theme="dark"] td.c-pct{color:#c4a5ff}
 
 .pill.e-odc{background:#e0e7ff;color:#3730a3;border:1px solid #6366f1}
-#visorBar{background:#7c3aed;color:#fff;font-weight:700;text-align:center;padding:4px 8px;font-size:12px;letter-spacing:.04em;border-radius:4px;margin-bottom:6px}
+#visorBtn.vis-on{background:#dc2626 !important;color:#fff !important;border-color:#b91c1c !important;font-weight:700}
+#visorBtn.vis-off{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
+#visorBar{background:#dc2626;color:#fff;font-weight:700;text-align:center;padding:4px 8px;font-size:12px;letter-spacing:.04em;border-radius:4px;margin-bottom:6px}
 html.pw-visor [data-act="newProy"],html.pw-visor [data-act="newFac"],html.pw-visor [data-act="newBol"],html.pw-visor [data-act="addCli"],html.pw-visor [data-act="cliDirs"],html.pw-visor #newCli,
 html.pw-visor #fbSave,html.pw-visor #fbSaveAs,html.pw-visor #fbNew,html.pw-visor [data-act="delCli"],html.pw-visor [data-act="savePar"]{display:none !important}
 html.pw-visor [data-sm],html.pw-visor #pane .ptab input,html.pw-visor #pane input[data-par]{pointer-events:none;opacity:.7}
@@ -2258,7 +2260,7 @@ function visorUI() {
   const hoy = document.getElementById('hoyBox'); if (!hoy) return;
   let b = document.getElementById('visorBtn');
   if (!b) { b = document.createElement('button'); b.id = 'visorBtn'; b.className = 'pwout'; b.onclick = visorToggle; hoy.appendChild(b); }
-  b.textContent = on ? '👁 Visor' : '👁'; b.title = on ? 'Modo visor activo: clic para salir (pide la contraseña)' : 'Activar modo visor (solo lectura) en este equipo';
+  b.textContent = on ? '👁 Visor' : '👁'; b.classList.toggle('vis-on', on); b.classList.toggle('vis-off', !on); b.title = on ? 'Modo visor activo: clic para salir (pide la contraseña)' : 'Activar modo visor (solo lectura) en este equipo';
 }
 async function visorToggle() {
   if (!VISOR()) { if (!confirmVisor()) return; try { localStorage.setItem('pw_visor', '1'); } catch (e) {} visorUI(); render(); toast('Modo visor activado en este equipo.'); return; }
@@ -2300,7 +2302,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1105. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1109. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
