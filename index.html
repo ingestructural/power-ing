@@ -1705,7 +1705,7 @@ function vBandeja() {
       if (!it.hecho) acc = `<button class="btn" data-bja="crear" data-id="${esc(it.id)}">Revisar y crear proyecto…</button>`;
     } else if (!it.hecho) acc = `<button class="btn ghost" data-bja="listo" data-id="${esc(it.id)}">Marcar como leído</button>`;
     const mUF = bjMontoUF(it);
-    const datos = dl([['Cliente', it.cliente], ['RUT', it.rut ? rutFmt(it.rut) : ''], ['Proyecto', it.proyecto], ['Código', it.codigo], ['OC / OS', it.oc], ['HES', it.hes], ['HAS', it.has], ['WE', it.we],
+    const datos = dl([['Cliente', it.cliente], ['RUT', it.rut ? rutFmt(it.rut) : ''], ['Proyecto', it.proyecto], ['Código', it.codigo], ['OC / OS / ODC', it.oc], ['HES', it.hes], ['HAS', it.has], ['WE', it.we],
       ['Monto', mUF != null ? uf(mUF) + ' UF' + (it.montoCLP ? ' (' + clp(+bjDig(it.montoCLP)) + ')' : '') + (it.montoNota ? ' · ' + it.montoNota : '') : ''], ['Documento', it.documento === 'B' ? 'Boleta' : it.documento === 'F' ? 'Factura' : ''],
       ['Contacto', it.contacto], ['Glosa sugerida', it.glosa], ['Adjuntos', (it.adjuntos || []).join(', ')]]);
     return `<article class="bj-card ${it.hecho ? 'bj-done' : ''}" style="border-left-color:${t[1]}">
@@ -1925,7 +1925,7 @@ function openEditor(kind, id, preProy, pre) {
         <div><button type="button" class="btn ghost mini" id="bAddTerc">+ Agregar tercero</button></div>
         <div id="tercSum" class="tercsum"></div></div>
       <div class="refs full"><div class="rt">Referencias del cliente (informativo)</div>
-        <label title="Número de orden de compra">N° OC<input id="e-oc" value="${esc(r.oc||'')}"></label>
+        <label title="Número de orden de compra, orden de servicio u ODC">N° OC / OS / ODC<input id="e-oc" value="${esc(r.oc||'')}"></label>
         <label>HES<input id="e-hes" value="${esc(r.hes||'')}" title="Hoja de entrada de servicio"></label>
         <label>HAS<input id="e-has" value="${esc(r.has||'')}" title="Hoja de aceptación de servicio"></label>
         <label>WE<input id="e-we" value="${esc(r.we||'')}"></label></div>
@@ -2474,7 +2474,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1522. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1538. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
