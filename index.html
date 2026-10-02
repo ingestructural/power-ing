@@ -761,6 +761,7 @@ nav.tabs button[aria-selected="true"]:not(.ti):not(.tg){color:var(--bar)!importa
 
 /* bandeja de correo */
 .bj-badge{display:inline-block;margin-left:5px;min-width:18px;padding:0 5px;border-radius:9px;background:#dc2626;color:#fff;font-size:.7rem;font-weight:700;line-height:18px;text-align:center}
+.bj-badge[hidden]{display:none !important}
 .bj-bar{align-items:center;gap:8px;flex-wrap:wrap}
 .bj-card{background:var(--panel);border:1px solid var(--line);border-left:5px solid #475569;border-radius:6px;padding:10px 14px;margin:10px 0}
 .bj-card.bj-done{opacity:.6}
@@ -774,6 +775,10 @@ nav.tabs button[aria-selected="true"]:not(.ti):not(.tg){color:var(--bar)!importa
 .bj-ch{width:100%;border-collapse:collapse;font-size:.8rem} .bj-ch th,.bj-ch td{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left;position:static}
 .bj-card footer{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{display:none !important}
+
+.refs label.smf{font-size:.72rem;color:var(--muted)} .refs label.smf input{font-size:.78rem;padding:4px 6px}
+.refs label.full2{grid-column:span 3}
+.smi{font-size:.72rem !important;color:var(--muted)}
 </style>
 
 <div class="wrap">
@@ -1928,7 +1933,9 @@ function openEditor(kind, id, preProy, pre) {
         <label title="Número de orden de compra, orden de servicio u ODC">N° OC / OS / ODC<input id="e-oc" value="${esc(r.oc||'')}"></label>
         <label>HES<input id="e-hes" value="${esc(r.hes||'')}" title="Hoja de entrada de servicio"></label>
         <label>HAS<input id="e-has" value="${esc(r.has||'')}" title="Hoja de aceptación de servicio"></label>
-        <label>WE<input id="e-we" value="${esc(r.we||'')}"></label></div>
+        <label>WE<input id="e-we" value="${esc(r.we||'')}"></label>
+        <label class="smf">Planta / sede<input id="e-planta" value="${esc(r.planta||'')}" placeholder="Ej. Mulchen, Nacimiento"></label>
+        <label class="smf full2">Carpeta del proyecto<input id="e-carpetaRuta" data-noupper value="${esc(r.carpetaRuta||'')}" placeholder="Ej. 1PLANOS\Cmpc\Mulchen\Ampliación Nave Drymill"></label></div>
       <label class="full">Observaciones<textarea id="e-obs" rows="2">${esc(r.obs||'')}</textarea></label>
       <div class="calc" id="calcBox"></div>
     </form>
@@ -2244,7 +2251,7 @@ function wireDocProject(kind, rec) {
     const docOk = p.documento === (isF ? 'F' : 'B');
     box.innerHTML = `<div class="pi-h"><b class="code">${esc(p.codigo)}</b> ${esc(projName(p))}</div>
       <dl><dt>Cliente / mandante</dt><dd>${esc(p.mandante)}</dd>${rutDe(p.mandante) ? `<dt>RUT</dt><dd class="n">${esc(rutDe(p.mandante))}</dd>` : ''}<dt>Contacto</dt><dd>${esc(TITLE(p.contacto)||'—')}</dd>
-${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>`<dt>${x[0]}</dt><dd class="n">${esc(x[1])}</dd>`).join('')}<dt>Estado</dt><dd>${esc(p.estado)}</dd>
+${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>`<dt>${x[0]}</dt><dd class="n">${esc(x[1])}</dd>`).join('')}${p.planta ? `<dt class="smi">Planta</dt><dd class="smi">${esc(p.planta)}</dd>` : ''}${p.carpetaRuta ? `<dt class="smi">Carpeta</dt><dd class="smi" style="word-break:break-all">📁 ${esc(p.carpetaRuta)}</dd>` : ''}<dt>Estado</dt><dd>${esc(p.estado)}</dd>
       <dt>Monto proyecto</dt><dd class="n">${uf(p.montoUF)} UF · ${clp(m.totalCLP)}</dd>
       <dt>Ya documentado</dt><dd class="n">${uf(facOtros)} UF</dd>
       <dt>Saldo por facturar</dt><dd class="n"><b>${uf(sal)} UF</b> <button type="button" class="btn ghost mini" id="bSaldo">Usar saldo</button></dd></dl>
@@ -2356,7 +2363,7 @@ async function save(kind, rec) {
       }
       if (!nuevoCli) { const rv = rutFmt((val('rut')||'').trim()), cc = S.clientes.find(c => c.nombre === mandante);
         if (cc && rv !== (cc.rut||'')) { const {id: cid, ...crest} = cc; try { await put('clientes', cid, {...crest, rut: rv}); } catch (e) { toast('No se pudo guardar el RUT'); } } }
-      const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: val('documento'),
+      const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), planta: UP((val('planta')||'').trim()), carpetaRuta: (val('carpetaRuta')||'').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: val('documento'),
         montoUF: m, valorUF: v, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
       if (S.proyectos.some(p => projName(p) === base.proyecto && (!rec || p.id !== rec.id))) return err.textContent = 'Ya existe un proyecto con ese nombre.';
       base.creado = val('creado') || (rec ? rec.creado || '' : today());
@@ -2474,7 +2481,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1538. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1600. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
