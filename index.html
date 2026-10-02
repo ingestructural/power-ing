@@ -758,6 +758,22 @@ nav.tabs button[aria-selected="true"]:not(.ti):not(.tg){color:var(--bar)!importa
 #kpis .kpi.ky1 b,#kpis .kpi.ky2 b{color:#854d0e}
 #kpis .kpi.kg1{flex:1 1 168px;min-width:168px}
 @media (max-width:700px){#kpis .kpi.kg1{flex:0 0 160px;min-width:160px}}
+
+/* bandeja de correo */
+.bj-badge{display:inline-block;margin-left:5px;min-width:18px;padding:0 5px;border-radius:9px;background:#dc2626;color:#fff;font-size:.7rem;font-weight:700;line-height:18px;text-align:center}
+.bj-bar{align-items:center;gap:8px;flex-wrap:wrap}
+.bj-card{background:var(--panel);border:1px solid var(--line);border-left:5px solid #475569;border-radius:6px;padding:10px 14px;margin:10px 0}
+.bj-card.bj-done{opacity:.6}
+.bj-card h4{margin:6px 0 4px;font-size:1rem}
+.bj-res{margin:0 0 8px;font-size:.88rem;color:var(--ink)}
+.bj-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:760px){.bj-grid{grid-template-columns:1fr}}
+.bj-dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font-size:.82rem}
+.bj-dl dt{color:var(--muted)} .bj-dl dd{margin:0;font-family:var(--ff-m)}
+.bj-sel{display:block;margin-bottom:6px} .bj-sel select{width:100%}
+.bj-ch{width:100%;border-collapse:collapse;font-size:.8rem} .bj-ch th,.bj-ch td{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left;position:static}
+.bj-card footer{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{display:none !important}
 </style>
 
 <div class="wrap">
@@ -783,6 +799,7 @@ nav.tabs button[aria-selected="true"]:not(.ti):not(.tg){color:var(--bar)!importa
   <div class="kpis" id="kpis"></div>
   <nav class="tabs" role="tablist" id="tabs">
     <button role="tab" data-t="proyectos" id="tab-proyectos">Proyectos</button>
+    <button role="tab" data-t="bandeja" id="tab-bandeja">Bandeja ✉<span id="bjBadge" class="bj-badge" hidden></span></button>
     <button role="tab" data-t="cartera" id="tab-cartera">Cartera total</button>
     <button role="tab" data-t="facturas" class="ti" id="tab-facturas">Facturas</button>
     <button role="tab" data-t="boletas" class="tg" id="tab-boletas">Boletas</button>
@@ -1308,10 +1325,12 @@ function render() {
   renderKpis();
   const ready = LOCAL || (S.loaded.proyectos && S.loaded.facturas && S.loaded.boletas && S.loaded.clientes);
   if (!ready) { $('#pane').innerHTML = '<div class="empty">Cargando registros…</div>'; return; }
-  const fn = {proyectos: vProyectos, facturas: vFacturas, boletas: vBoletas, resumen: vResumen, cartera: vCartera, impuesto: vImpuesto, clientes: vClientes, parametros: vParametros}[S.tab] || vProyectos;
+  const fn = {proyectos: vProyectos, facturas: vFacturas, boletas: vBoletas, resumen: vResumen, cartera: vCartera, impuesto: vImpuesto, clientes: vClientes, parametros: vParametros, bandeja: vBandeja}[S.tab] || vProyectos;
   const focusId = document.activeElement?.id, selS = document.activeElement?.selectionStart;
   $('#pane').innerHTML = fn();
-  bindPane(); { const f = document.getElementById('flHead'); if (f) f.remove(); } setTimeout(stickHead, 0);
+  bindPane(); if (S.tab === 'bandeja') bindBandeja($('#pane'));
+  { const b = document.getElementById('bjBadge'); if (b) { const n = bjPend(); b.hidden = !n; b.textContent = n; } }
+  { const f = document.getElementById('flHead'); if (f) f.remove(); } setTimeout(stickHead, 0);
   if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); try { if (selS != null) el.setSelectionRange(selS, selS); } catch (e) {} } }
 }
 function renderKpis() {
@@ -1634,6 +1653,125 @@ function vImpuesto() {
     <p class="note">La retención también financia las cotizaciones previsionales del trabajador independiente: en la Operación Renta el SII las descuenta primero. Ingrese el monto de la propuesta del SII. Tabla IGC y UTA según SII, Renta 2026. Estimación referencial; no reemplaza la declaración ni la revisión de su contador.</p></div>
   </div>`;
 }
+/* ------------------------------------------------------------------ bandeja de correo (propuestas preparadas por Claude desde Gmail) */
+const BJ_TIPOS = {nuevo: ['Proyecto nuevo', '#1d4ed8'], actualizar: ['Actualizar proyecto', '#b45309'], info: ['Información', '#475569']};
+const bjItems = () => ((S.imp.bandeja && S.imp.bandeja.items) || []).slice();
+const bjPend = () => bjItems().filter(i => !i.hecho).length;
+const bjNorm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\b(S\.?A\.?|SPA|LTDA\.?|LIMITADA|S\.?P\.?A\.?)\b/g, '').replace(/[^A-Z0-9]+/g, ' ').trim();
+const bjDig = s => String(s || '').replace(/\D/g, '');
+async function bjSave(items) { await putConfig('bandeja', {items, actualizado: new Date().toISOString()}); }
+function bjCliente(nombre, rut) {   // cliente existente que corresponde al del correo (por RUT o por nombre)
+  if (rut) { const r = rutFmt(rut); const c = S.clientes.find(x => x.rut && rutFmt(x.rut) === r); if (c) return c; }
+  const n = bjNorm(nombre); if (!n) return null;
+  return S.clientes.find(c => bjNorm(c.nombre) === n) || S.clientes.find(c => { const m = bjNorm(c.nombre); return m.length >= 3 && (n.startsWith(m + ' ') || n === m || m.startsWith(n + ' ')); }) || null;
+}
+function bjProyectos(it) {   // proyectos candidatos: por código, OC, HES, HAS o WE
+  const out = [];
+  const add = (p, por) => { if (p && !out.some(x => x.p.id === p.id)) out.push({p, por}); };
+  if (it.codigo) S.proyectos.filter(p => String(p.codigo).toUpperCase() === String(it.codigo).toUpperCase()).forEach(p => add(p, 'código'));
+  [['oc', 'OC'], ['has', 'HAS'], ['hes', 'HES'], ['we', 'WE']].forEach(([k, l]) => { const d = bjDig(it[k]); if (d.length >= 4) S.proyectos.filter(p => bjDig(p[k]) && (bjDig(p[k]) === d || bjDig(p[k]).includes(d) || d.includes(bjDig(p[k])))).forEach(p => add(p, l)); });
+  return out;
+}
+function bjCambios(it, p) {   // lo que se modificaría en el proyecto
+  const ch = [];
+  ['oc', 'hes', 'has', 'we'].forEach(k => { if (it[k] && String(it[k]).trim() !== String(p[k] || '').trim()) ch.push([k, k.toUpperCase(), p[k] || '—', String(it[k]).trim()]); });
+  if (it.estado && ESTADOS_PROY.includes(it.estado) && it.estado !== p.estado) ch.push(['estado', 'Estado', estadoTxt(p.estado, p.documento), estadoTxt(it.estado, p.documento)]);
+  if (it.glosa && it.glosa !== (p.glosaFact || '')) ch.push(['glosaFact', 'Glosa para la factura/boleta', p.glosaFact || '—', it.glosa]);
+  if (it.contacto && !p.contacto) ch.push(['contacto', 'Contacto', '—', TITLE(it.contacto)]);
+  return ch;
+}
+function bjMontoUF(it) { if (it.montoUF != null && it.montoUF !== '') return +it.montoUF; if (it.montoCLP) return Math.round(+bjDig(it.montoCLP) / P().ufRef * 100) / 100; return null; }
+function vBandeja() {
+  const all = bjItems().sort((a, b) => String(b.recibido || '').localeCompare(String(a.recibido || '')));
+  const ver = S.bjVer || 'pend';
+  const list = all.filter(i => ver === 'todos' ? true : !i.hecho);
+  const dl = (rows) => `<dl class="bj-dl">${rows.filter(r => r[1] != null && r[1] !== '').map(r => `<dt>${r[0]}</dt><dd>${r[2] ? r[1] : esc(r[1])}</dd>`).join('')}</dl>`;
+  const card = it => {
+    const t = BJ_TIPOS[it.tipo] || BJ_TIPOS.info;
+    let cuerpo = '', acc = '';
+    if (it.hecho) acc = `<span class="small muted">✓ ${esc(it.hecho)}</span>`;
+    if (it.tipo === 'actualizar') {
+      const cand = bjProyectos(it); const sel = it._pid || (cand[0] && cand[0].p.id) || '';
+      const p = S.proyectos.find(x => x.id === sel);
+      const opts = S.proyectos.slice().sort((a, b) => String(b.codigo).localeCompare(String(a.codigo))).map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.codigo)} · ${esc(projName(x)).slice(0, 60)}${cand.some(c => c.p.id === x.id) ? ' ← coincide por ' + cand.find(c => c.p.id === x.id).por : ''}</option>`).join('');
+      const ch = p ? bjCambios(it, p) : [];
+      cuerpo += `<label class="small bj-sel">Proyecto <select data-bjp="${esc(it.id)}"><option value="">${cand.length ? 'Elegir…' : 'No encontré coincidencia — elegir…'}</option>${opts}</select></label>`;
+      if (p) cuerpo += ch.length ? `<table class="bj-ch"><tr><th>Campo</th><th>Hoy</th><th>Queda</th></tr>${ch.map(c => `<tr><td>${c[1]}</td><td class="muted">${esc(c[2])}</td><td><b>${esc(c[3])}</b></td></tr>`).join('')}</table>` : '<p class="small muted">El proyecto ya tiene estos datos; no hay cambios.</p>';
+      if (!it.hecho) acc = `<button class="btn" data-bja="aplicar" data-id="${esc(it.id)}" ${p && ch.length ? '' : 'disabled'}>Aplicar cambios</button>`;
+    } else if (it.tipo === 'nuevo') {
+      const c = bjCliente(it.mandante || it.cliente, it.rut);
+      const ya = it.oc ? S.proyectos.find(x => bjDig(x.oc) && bjDig(x.oc) === bjDig(it.oc)) : null;
+      cuerpo += `<p class="small">Cliente en POWER: ${c ? `<b>${esc(c.nombre)}</b>` : '<b>nuevo</b> (se creará al guardar)'}${ya ? ` · <span class="warn">Ya existe el proyecto ${esc(ya.codigo)} con esa OC</span>` : ''}</p>`;
+      if (!it.hecho) acc = `<button class="btn" data-bja="crear" data-id="${esc(it.id)}">Revisar y crear proyecto…</button>`;
+    } else if (!it.hecho) acc = `<button class="btn ghost" data-bja="listo" data-id="${esc(it.id)}">Marcar como leído</button>`;
+    const mUF = bjMontoUF(it);
+    const datos = dl([['Cliente', it.cliente], ['RUT', it.rut ? rutFmt(it.rut) : ''], ['Proyecto', it.proyecto], ['Código', it.codigo], ['OC / OS', it.oc], ['HES', it.hes], ['HAS', it.has], ['WE', it.we],
+      ['Monto', mUF != null ? uf(mUF) + ' UF' + (it.montoCLP ? ' (' + clp(+bjDig(it.montoCLP)) + ')' : '') + (it.montoNota ? ' · ' + it.montoNota : '') : ''], ['Documento', it.documento === 'B' ? 'Boleta' : it.documento === 'F' ? 'Factura' : ''],
+      ['Contacto', it.contacto], ['Glosa sugerida', it.glosa], ['Adjuntos', (it.adjuntos || []).join(', ')]]);
+    return `<article class="bj-card ${it.hecho ? 'bj-done' : ''}" style="border-left-color:${t[1]}">
+      <header><span class="pill" style="background:${t[1]};color:#fff">${t[0]}</span> <span class="small muted">${esc(fdate(it.recibido) || '')} · ${esc(it.de || '')}</span></header>
+      <h4>${esc(it.asunto || '(sin asunto)')}</h4>
+      ${it.resumen ? `<p class="bj-res">${esc(it.resumen)}</p>` : ''}
+      <div class="bj-grid"><div>${datos}</div><div>${cuerpo}</div></div>
+      <footer>${acc}${it.link ? ` <a class="btn ghost mini" href="${esc(it.link)}" target="_blank" rel="noopener">Ver correo</a>` : ''}${!it.hecho ? ` <button class="btn ghost mini" data-bja="descartar" data-id="${esc(it.id)}">Descartar</button>` : ` <button class="btn ghost mini" data-bja="reabrir" data-id="${esc(it.id)}">Reabrir</button>`}</footer></article>`;
+  };
+  return `<div class="bar bj-bar"><b>Bandeja de correo</b><span class="small muted">${bjPend()} pendiente${bjPend() === 1 ? '' : 's'} · ${all.length} en total</span>
+      <span class="grow"></span>
+      <select id="bjVer"><option value="pend" ${ver === 'pend' ? 'selected' : ''}>Pendientes</option><option value="todos" ${ver === 'todos' ? 'selected' : ''}>Todos</option></select>
+      <label class="btn">Cargar archivo…<input type="file" id="bjFile" accept=".json,application/json" hidden></label>
+      <button class="btn ghost" data-bja="pegar">Pegar</button>
+      ${all.some(i => i.hecho) ? '<button class="btn ghost" data-bja="limpiar">Borrar procesados</button>' : ''}</div>
+    ${list.length ? list.map(card).join('') : `<div class="empty">${all.length ? 'No hay pendientes.' : 'La bandeja está vacía.'}<br><span class="small">Claude revisa los correos de clientes que llegan a Gmail (etiqueta POWER) y prepara un archivo <b>bandeja_POWER_*.json</b>. Cárgalo aquí con «Cargar archivo…» o pégalo con «Pegar».</span></div>`}
+    <p class="note">Nada se guarda en POWER hasta que presionas <b>Aplicar cambios</b> o guardas el proyecto. Los datos vienen leídos de correos y PDF: revísalos antes de aceptar.</p>`;
+}
+async function bjImport(txt) {
+  let o; try { o = JSON.parse(txt); } catch (e) { return toast('El texto no es un archivo de bandeja válido'); }
+  const nuevos = Array.isArray(o) ? o : (o.items || []);
+  if (!nuevos.length) return toast('El archivo no trae correos');
+  const items = bjItems(); let n = 0;
+  nuevos.forEach(it => { if (!it || !it.id) it.id = 'bj' + Math.random().toString(36).slice(2, 10); if (!items.some(x => x.id === it.id)) { delete it.hecho; items.push(it); n++; } });
+  if (!n) return toast('Esos correos ya estaban en la bandeja');
+  try { await bjSave(items); toast(n + ' correo' + (n === 1 ? '' : 's') + ' agregado' + (n === 1 ? '' : 's') + ' a la bandeja'); S.tab = 'bandeja'; render(); } catch (e) { toast('No se pudo guardar: ' + (e.code || e.message)); }
+}
+async function bjMark(id, txt) { const items = bjItems().map(x => x.id === id ? {...x, hecho: txt} : x); await bjSave(items); }
+function bindBandeja(pane) {
+  const f = $('#bjFile', pane); if (f) f.onchange = () => { const file = f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => bjImport(rd.result); rd.readAsText(file); f.value = ''; };
+  const v = $('#bjVer', pane); if (v) v.onchange = () => { S.bjVer = v.value; render(); };
+  pane.querySelectorAll('[data-bjp]').forEach(s => s.onchange = () => { const items = bjItems().map(x => x.id === s.dataset.bjp ? {...x, _pid: s.value} : x); S.imp.bandeja = {...(S.imp.bandeja || {}), items}; render(); });
+  pane.querySelectorAll('[data-bja]').forEach(b => b.onclick = async () => {
+    const a = b.dataset.bja, it = bjItems().find(x => x.id === b.dataset.id);
+    try {
+      if (a === 'pegar') {
+        $('#overlayRoot').innerHTML = `<div class="overlay" id="bjOv"><div class="drawer" role="dialog" aria-modal="true"><h3>Pegar bandeja</h3><p class="small muted">Pega aquí el texto que te entregó Claude.</p><textarea id="bjTxt" rows="14" style="width:100%;font-family:var(--ff-m);font-size:.8rem" data-noupper></textarea><div class="actions"><button class="btn ghost" id="bjCan">Cancelar</button><button class="btn" id="bjOk">Agregar</button></div></div></div>`;
+        $('#bjCan').onclick = closeEditor; $('#bjOk').onclick = async () => { const t = $('#bjTxt').value; closeEditor(); await bjImport(t); }; return;
+      }
+      if (a === 'limpiar') { if (!confirm('¿Borrar de la bandeja los correos ya procesados?')) return; await bjSave(bjItems().filter(x => !x.hecho)); return toast('Procesados borrados'); }
+      if (!it) return;
+      if (a === 'descartar') { await bjMark(it.id, 'Descartado ' + fdate(today())); return toast('Descartado'); }
+      if (a === 'listo') { await bjMark(it.id, 'Leído ' + fdate(today())); return; }
+      if (a === 'reabrir') { const items = bjItems().map(x => x.id === it.id ? (({hecho, ...r}) => r)(x) : x); await bjSave(items); return; }
+      if (a === 'aplicar') {
+        const pid = it._pid || (bjProyectos(it)[0] || {}).p?.id; const p = S.proyectos.find(x => x.id === pid); if (!p) return toast('Elija el proyecto');
+        const ch = bjCambios(it, p); if (!ch.length) return toast('No hay cambios');
+        const {id, ...old} = p; const upd = {...old};
+        ch.forEach(c => { upd[c[0]] = c[3]; });
+        upd.obs = ((old.obs || '').trim() + `\n[${fdate(it.recibido || today())}] Correo: ${it.asunto || ''}`).trim();
+        await put('proyectos', p.id, upd);
+        if (it.rut) { const c = S.clientes.find(x => x.nombre === p.mandante); if (c && !c.rut) { const {id: cid, ...cr} = c; await put('clientes', cid, {...cr, rut: rutFmt(it.rut)}); } }
+        await bjMark(it.id, 'Aplicado en ' + p.codigo + ' · ' + fdate(today()));
+        return toast('Proyecto ' + p.codigo + ' actualizado');
+      }
+      if (a === 'crear') {
+        const c = bjCliente(it.mandante || it.cliente, it.rut);
+        const pre = {mandante: c ? c.nombre : '', proyecto: UP(it.proyecto || it.asunto || ''), oc: it.oc || '', hes: it.hes || '', has: it.has || '', we: it.we || '', contacto: it.contacto || '',
+          documento: it.documento === 'B' ? 'B' : 'F', montoUF: bjMontoUF(it), estado: it.estado && ESTADOS_PROY.includes(it.estado) ? it.estado : (it.oc ? 'Adjudicado' : 'En oferta'),
+          obs: `[${fdate(it.recibido || today())}] Desde correo: ${it.asunto || ''}`, _newCli: c ? '' : UP(it.mandante || it.cliente || ''), _rut: it.rut ? rutFmt(it.rut) : '', _extra: it.glosa ? {glosaFact: it.glosa} : {}, _bj: it.id};
+        openEditor('proyectos', null, null, pre);
+      }
+    } catch (e) { toast('No se pudo: ' + (e.code || e.message)); }
+  });
+}
+
 function vClientes() {
   const rows = S.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const cnt = {}; rows.forEach(c => { const s = sigla(c.nombre); cnt[s] = (cnt[s]||0) + 1; });
@@ -1755,13 +1893,15 @@ document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { S.tab
 
 /* ------------------------------------------------------------------ editor lateral */
 function closeEditor() { $('#overlayRoot').innerHTML = ''; }
-function openEditor(kind, id, preProy) {
+let PRE_EXTRA = null, PRE_BJ = null;
+function openEditor(kind, id, preProy, pre) {
+  PRE_EXTRA = pre ? (pre._extra || {}) : null; PRE_BJ = pre ? pre._bj : null;
   const rec = id ? S[kind].find(x => x.id === id) : null;
   const root = $('#overlayRoot');
   const cls = kind === 'facturas' ? 'i' : kind === 'boletas' ? 'g' : '';
   let html = '';
   if (kind === 'proyectos') {
-    const r = rec || {anio: new Date().getFullYear(), documento: 'F', estado: 'En oferta'};
+    const r = rec || {anio: new Date().getFullYear(), documento: 'F', estado: 'En oferta', ...(pre || {})};
     const clientes = S.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
     html = `<h3>${rec ? 'Proyecto ' + esc(rec.codigo) : 'Nuevo proyecto'}</h3><p class="small muted">${rec ? 'Si cambia la empresa mandante o el año, el código se reasigna al guardar: <span id="prevCode" class="code"></span>' + (rec.historial && rec.historial.length ? '<br>Códigos anteriores: ' + rec.historial.map(h => `<span class="code">${esc(h.codigo)}</span> (${fdate(h.fecha)}${h.de ? ', en ' + esc(h.de) : ''})`).join(' · ') : '') : 'El código se asigna al guardar: <span id="prevCode" class="code"></span>'}</p>
     <form class="form" id="frm">
@@ -1834,6 +1974,7 @@ function openEditor(kind, id, preProy) {
   root.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', upd));
   if (kind === 'boletas') wireMoneda();
   if (kind !== 'proyectos') wireDocProject(kind, rec); else { wireTerceros(rec); { const ri = $('#e-rut'), ms = $('#e-mandante'); wireRut(ri); if (ri && ms) ms.addEventListener('change', () => { ri.value = ms.value === '__new' ? '' : rutDe(ms.value); }); } liveCase($('#e-newCli'), UP); liveCase($('#e-newSig'), UP); liveCase($('#e-proyecto'), UP); liveCase($('#e-contacto'), TITLE); { const cc = $('#carpCli'); const upd2 = () => { if (cc && FS.dir) cc.textContent = FS.dir.name + ' / ' + (mandanteSel() ? UP(mandanteSel()) : '…'); }; ['e-mandante','e-newCli'].forEach(x => { const el = document.getElementById(x); if (el) el.addEventListener('input', upd2); }); } const bb = $('#bCarpBase'); if (bb) bb.onclick = async () => { await fsPickFolder(true); if (FS.dir) openEditor('proyectos', rec ? rec.id : null); }; }
+  if (kind === 'proyectos' && pre) { const ms = $('#e-mandante'); if (pre._newCli && ms) { ms.value = '__new'; ms.dispatchEvent(new Event('change')); const nc = $('#e-newCli'); if (nc) { nc.value = pre._newCli; nc.dispatchEvent(new Event('input')); } } const ri = $('#e-rut'); if (ri && pre._rut && !ri.value) ri.value = pre._rut; }
   if (kind === 'proyectos' && rec) { $('#bNewF').onclick = () => openEditor('facturas', null, rec.id); $('#bNewB').onclick = () => openEditor('boletas', null, rec.id); const bm = $('#bMove'); if (bm) bm.onclick = () => moveProject(rec.id); }
   upd();
   $('#bSave').onclick = () => save(kind, rec);
@@ -2111,7 +2252,7 @@ ${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>`
       ${p.estado === 'Cancelado' ? '<p class="warn small">Proyecto cancelado.</p>' : ''}`;
     $('#bSaldo').onclick = () => { setM(Math.max(sal, 0)); tc.value = facOtros > 0 ? 'Saldo final' : 'Total'; syncPct(); };
     if (fill) {
-      const g = projName(p);
+      const g = p.glosaFact || projName(p);
       if (!gl.value.trim() || gl.value === autoG) { gl.value = g; autoG = g; }
       if (!mU.value.trim() || mU.value === autoM) { setM(Math.max(sal, 0)); tc.value = facOtros > 0 ? 'Saldo final' : 'Total'; }
     }
@@ -2233,7 +2374,7 @@ async function save(kind, rec) {
           for (const col of ['facturas', 'boletas']) for (const d of S[col].filter(x => x.proyectoId === rec.id && !['Pagada','Anulada'].includes(x.estado))) {
             const {id: did, ...dr} = d; await put(col, did, {...dr, estado: 'Pagada', fechaPago: dr.fechaPago || today()}); nPag++; } }
         toast((extra.codigo ? `Proyecto guardado · código ${rec.codigo} → ${extra.codigo}` : 'Proyecto guardado') + (nPag ? ` · ${nPag} documento${nPag===1?'':'s'} marcado${nPag===1?'':'s'} como pagado${nPag===1?'':'s'}` : '')); }
-      else { const c = nextCodigo(mandante, anio); await put('proyectos', uid(), {...base, ...c}); toast('Proyecto ' + c.codigo + ' creado'); }
+      else { const c = nextCodigo(mandante, anio); await put('proyectos', uid(), {...base, ...c, ...(PRE_EXTRA || {})}); toast('Proyecto ' + c.codigo + ' creado'); if (PRE_BJ) { try { await bjMark(PRE_BJ, 'Proyecto ' + c.codigo + ' creado · ' + fdate(today())); } catch (e) {} } PRE_EXTRA = null; PRE_BJ = null; }
     } else {
       const fecha = val('fecha'), numero = +val('numero');
       if (!fecha) return err.textContent = 'Ingrese la fecha de emisión.';
@@ -2333,7 +2474,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1209. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1522. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
