@@ -658,7 +658,7 @@ td.c-pp{background:color-mix(in srgb,#dc2626 6%,transparent)!important} td.c-pp.
 #visorBtn.vis-on{background:#dc2626 !important;color:#fff !important;border-color:#b91c1c !important;font-weight:700}
 #visorBtn.vis-off{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
 #visorBar{background:#dc2626;color:#fff;font-weight:700;text-align:center;padding:4px 8px;font-size:12px;letter-spacing:.04em;border-radius:4px;margin-bottom:6px}
-html.pw-visor [data-act="newProy"],html.pw-visor [data-act="newFac"],html.pw-visor [data-act="newBol"],html.pw-visor [data-act="addCli"],html.pw-visor [data-act="cliDirs"],html.pw-visor #newCli,
+html.pw-visor [data-act="newProy"],html.pw-visor [data-act="newFac"],html.pw-visor [data-act="newBol"],html.pw-visor [data-act="addCli"],html.pw-visor [data-act="cliDirs"],html.pw-visor #newCli,html.pw-visor #newCliRut,
 html.pw-visor #fbSave,html.pw-visor #fbSaveAs,html.pw-visor #fbNew,html.pw-visor [data-act="delCli"],html.pw-visor [data-act="savePar"]{display:none !important}
 html.pw-visor [data-sm],html.pw-visor #pane .ptab input,html.pw-visor #pane input[data-par]{pointer-events:none;opacity:.7}
 html.pw-visor .cobrar.nd{pointer-events:none;cursor:default}
@@ -731,6 +731,7 @@ tr.row-factu td{background:color-mix(in srgb,#dc2626 9%,transparent)!important}
 .pc-mon .c-fac b{color:#0060c1} .pc-mon .c-pf b{color:#c2410c} .pc-mon .c-pag b{color:#15803d} .pc-mon .c-pp b{color:#b91c1c}
 
 /* panel superior fijo al desplazarse */
+.rutm{display:block;font-size:.72rem;color:var(--muted);font-weight:400;font-family:var(--ff-m,monospace);white-space:nowrap}
 .stickTop{position:sticky;top:0;z-index:15;background:var(--bg);margin-top:-12px;padding-top:12px;box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
 nav.tabs button{color:#fff!important;opacity:1!important}
 nav.tabs button:not([aria-selected="true"]):hover{background:rgba(255,255,255,.14)}
@@ -1415,7 +1416,7 @@ function vProyectos() {
     <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto&nbsp;(UF)','n cen',SUB_CI)}${sortTh('montoCLP','Monto&nbsp;($)','n',SUB_CI)}${sortTh('propio','Propio&nbsp;(UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado&nbsp;(UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar&nbsp;(UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
     <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Terminado','Suspendido','Cancelado','No adjudicado'].includes(p.estado);
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''}" data-edit="proyectos" data-id="${p.id}">
-      <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}</td><td class="pname">${esc(projName(p))}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
+      <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
       <td class="keep">${p.documento==='F'?'<span class="pill p-i">Factura</span>':'<span class="pill p-g">Boleta</span>'}</td>
       <td class="n cen">${uf(p.montoUF)}</td><td class="n">${clp(m.totalCLP)}</td><td class="n cen prop" title="${p.documento==='F'?'Neto sin IVA menos costo neto de terceros':'Bruto menos terceros'}">${uf(m.propioUF)}${m.tercUF > 0 ? `<span class="fing">terceros ${uf(m.tercUF)}</span>` : ''}</td><td class="nw ${late?'late':''}">${fdate(p.entrega)}</td>
       <td class="keep">${pillProy(p.estado, p.documento)}${(() => { const cp = cobroPend(p, m); const pg = pagarTerc(p, m); const pgH = pg ? `<div class="cobrar pag" title="El cliente ya pagó: pagar al tercero">🟠 PAGAR${pg.map(t => `<span>${uf(t.montoUF)} UF · ${esc(t.nombre||'tercero')}</span>`).join('')}</div>` : '';
@@ -1441,7 +1442,7 @@ function cardProy(p) {
   return `<div class="pcard click ${p.estado==='Cancelado'?'cancel':''} ${p.documento==='F'?'f':'b'} ${p.estado==='Facturar'?'pc-factu':''}" data-edit="proyectos" data-id="${p.id}">
     <div class="pc-top"><span class="code" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}</span>${pillProy(p.estado, p.documento)}</div>
     <div class="pc-name">${esc(projName(p))}</div>
-    <div class="pc-sub"><b class="pc-mand">${esc(p.mandante)}</b>${p.contacto ? ' · ' + esc(TITLE(p.contacto)) : ''}${refs ? `<br><span class="refl">${refs}</span>` : ''}</div>
+    <div class="pc-sub"><b class="pc-mand">${esc(p.mandante)}</b>${rutDe(p.mandante) ? ' <span class="rutm" style="display:inline">· ' + esc(rutDe(p.mandante)) + '</span>' : ''}${p.contacto ? ' · ' + esc(TITLE(p.contacto)) : ''}${refs ? `<br><span class="refl">${refs}</span>` : ''}</div>
     <div class="pc-av">${avisosProy(p, m)}</div>
     <div class="pc-mon"><div><small>Monto</small><b>${uf(p.montoUF)} UF</b><i>${clp(m.totalCLP)}</i></div>
       <div class="c-fac"><small>Facturado</small><b>${uf(m.facturadoUF)}</b><i>${m.pctF==null?'—':pct(m.pctF)}</i></div>
@@ -1621,10 +1622,10 @@ function vImpuesto() {
 function vClientes() {
   const rows = S.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const cnt = {}; rows.forEach(c => { const s = sigla(c.nombre); cnt[s] = (cnt[s]||0) + 1; });
-  return `<div class="bar"><input class="grow" id="newCli" placeholder="Nombre del nuevo mandante"><button class="btn" data-act="addCli">Agregar cliente</button>${LOCAL && FS.supported ? '<button class="btn ghost" data-act="cliDirs">Crear carpetas de clientes</button>' : ''}<button class="btn ghost" data-act="csv" data-what="clientes">Exportar CSV</button></div>
-  <div class="tbl"><table><thead><tr><th>Empresa mandante</th><th>Sigla</th><th>Sigla manual</th><th class="n">Proyectos</th><th></th></tr></thead><tbody>
+  return `<div class="bar"><input class="grow" id="newCli" placeholder="Nombre del nuevo mandante"><input id="newCliRut" data-noupper placeholder="RUT 12.345.678-9" size="14"><button class="btn" data-act="addCli">Agregar cliente</button>${LOCAL && FS.supported ? '<button class="btn ghost" data-act="cliDirs">Crear carpetas de clientes</button>' : ''}<button class="btn ghost" data-act="csv" data-what="clientes">Exportar CSV</button></div>
+  <div class="tbl"><table><thead><tr><th>Empresa mandante</th><th>RUT</th><th>Sigla</th><th>Sigla manual</th><th class="n">Proyectos</th><th></th></tr></thead><tbody>
   ${rows.map(c => { const s = sigla(c.nombre); const n = S.proyectos.filter(p=>p.mandante===c.nombre).length;
-    return `<tr><td>${esc(c.nombre)}</td><td class="code" style="${cnt[s]>1?'color:var(--warn)':''}">${esc(s)}</td><td><input id="sm-${c.id}" data-sm="${c.id}" maxlength="3" size="4" value="${esc(c.siglaManual||'')}" style="text-transform:uppercase"></td><td class="n">${n}</td>
+    return `<tr><td>${esc(c.nombre)}</td><td><input data-rutc="${c.id}" data-noupper size="13" placeholder="—" value="${esc(c.rut||'')}"></td><td class="code" style="${cnt[s]>1?'color:var(--warn)':''}">${esc(s)}</td><td><input id="sm-${c.id}" data-sm="${c.id}" maxlength="3" size="4" value="${esc(c.siglaManual||'')}" style="text-transform:uppercase"></td><td class="n">${n}</td>
     <td>${n ? '' : `<button class="btn ghost" data-act="delCli" data-id="${c.id}">Eliminar</button>`}</td></tr>`; }).join('')}</tbody></table></div>
   <p class="note">La sigla se usa al crear el código de un proyecto nuevo; cambiarla no modifica los códigos ya asignados. En naranjo: siglas repetidas (el correlativo general igual hace único el código).</p>`;
 }
@@ -1706,6 +1707,10 @@ function bindPane() {
   pane.querySelectorAll('[data-imp]').forEach(inp => inp.onchange = async () => {
     const k = 'imp' + S.impYear; const cur = {...(S.imp[k]||{})}; cur[inp.dataset.imp] = numIn(inp.value) || 0;
     S.imp[k] = cur; try { await putConfig(k, cur); } catch (e) { toast('No se pudo guardar: ' + (e.code||e.message)); } render(); });
+  pane.querySelectorAll('[data-rutc]').forEach(inp => { wireRut(inp); inp.onchange = async () => {
+    const c = S.clientes.find(x => x.id === inp.dataset.rutc); if (!c) return; const v = rutFmt(inp.value.trim());
+    const {id, ...rest} = c; try { await put('clientes', id, {...rest, rut: v}); toast('RUT guardado'); } catch (e) { toast('No se pudo guardar'); } }; });
+  wireRut($('#newCliRut', pane));
   pane.querySelectorAll('[data-sm]').forEach(inp => inp.onchange = async () => {
     const c = S.clientes.find(x => x.id === inp.dataset.sm); if (!c) return;
     const {id, ...rest} = c; try { await put('clientes', id, {...rest, siglaManual: inp.value.trim().toUpperCase()}); toast('Sigla guardada'); } catch (e) { toast('No se pudo guardar'); } });
@@ -1723,7 +1728,7 @@ async function act(a, b) {
   if (a === 'cliDirs') return fsClientDirs();
   if (a === 'addCli') { const inp = $('#newCli'); const n = inp.value.trim().toUpperCase(); if (!n) return;
     if (S.clientes.some(c => c.nombre.toUpperCase() === n)) return toast('Ese cliente ya existe');
-    try { await put('clientes', uid(), {nombre: n, siglaManual: ''}); toast('Cliente agregado'); } catch (e) { toast('No se pudo guardar'); } return; }
+    const rI = $('#newCliRut'); try { await put('clientes', uid(), {nombre: n, siglaManual: '', rut: rutFmt(rI ? rI.value.trim() : '')}); toast('Cliente agregado'); } catch (e) { toast('No se pudo guardar'); } return; }
   if (a === 'delCli') { try { await del('clientes', b.dataset.id); toast('Cliente eliminado'); } catch (e) { toast('No se pudo eliminar'); } return; }
   if (a === 'savePar') { const p = {...P(), rates: {...P().rates}};
     document.querySelectorAll('[data-par]').forEach(i => { const v = numIn(i.value); if (v != null) p[i.dataset.par] = v; });
@@ -1746,6 +1751,7 @@ function openEditor(kind, id, preProy) {
     html = `<h3>${rec ? 'Proyecto ' + esc(rec.codigo) : 'Nuevo proyecto'}</h3><p class="small muted">${rec ? 'Si cambia la empresa mandante o el año, el código se reasigna al guardar: <span id="prevCode" class="code"></span>' + (rec.historial && rec.historial.length ? '<br>Códigos anteriores: ' + rec.historial.map(h => `<span class="code">${esc(h.codigo)}</span> (${fdate(h.fecha)}${h.de ? ', en ' + esc(h.de) : ''})`).join(' · ') : '') : 'El código se asigna al guardar: <span id="prevCode" class="code"></span>'}</p>
     <form class="form" id="frm">
       <label>Empresa mandante<select id="e-mandante" required><option value="">Elegir…</option><option value="__new">+ Nuevo cliente…</option>${clientes.map(c=>`<option ${c.nombre===r.mandante?'selected':''}>${esc(c.nombre)}</option>`).join('')}${r.mandante && !clientes.some(c=>c.nombre===r.mandante)?`<option selected>${esc(r.mandante)}</option>`:''}</select></label>
+      <label>RUT del cliente<input id="e-rut" data-noupper placeholder="12.345.678-9" value="${esc(rutDe(r.mandante))}" inputmode="text" autocomplete="off"></label>
       <div class="newcli full" id="w-newcli" hidden><label>Nombre del nuevo cliente<input id="e-newCli" placeholder="Ej. CODELCO"></label><label>Sigla (3 letras, opcional)<input id="e-newSig" maxlength="3" placeholder="automática"></label>${LOCAL && FS.supported && FS.dir ? `<label class="chk"><input type="checkbox" id="e-newDir" checked> Crear también su carpeta en ${esc(FS.dir.name || 'la carpeta base')}</label>` : ''}</div>
       <label>Año<input id="e-anio" type="number" value="${r.anio}" required></label>
       <label class="full">Proyecto (nombre y descripción)<textarea id="e-proyecto" rows="2" required>${esc(projName(r))}</textarea></label>
@@ -1812,7 +1818,7 @@ function openEditor(kind, id, preProy) {
   const upd = () => updateCalc(kind, rec);
   root.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', upd));
   if (kind === 'boletas') wireMoneda();
-  if (kind !== 'proyectos') wireDocProject(kind, rec); else { wireTerceros(rec); liveCase($('#e-newCli'), UP); liveCase($('#e-newSig'), UP); liveCase($('#e-proyecto'), UP); liveCase($('#e-contacto'), TITLE); { const cc = $('#carpCli'); const upd2 = () => { if (cc && FS.dir) cc.textContent = FS.dir.name + ' / ' + (mandanteSel() ? UP(mandanteSel()) : '…'); }; ['e-mandante','e-newCli'].forEach(x => { const el = document.getElementById(x); if (el) el.addEventListener('input', upd2); }); } const bb = $('#bCarpBase'); if (bb) bb.onclick = async () => { await fsPickFolder(true); if (FS.dir) openEditor('proyectos', rec ? rec.id : null); }; }
+  if (kind !== 'proyectos') wireDocProject(kind, rec); else { wireTerceros(rec); { const ri = $('#e-rut'), ms = $('#e-mandante'); wireRut(ri); if (ri && ms) ms.addEventListener('change', () => { ri.value = ms.value === '__new' ? '' : rutDe(ms.value); }); } liveCase($('#e-newCli'), UP); liveCase($('#e-newSig'), UP); liveCase($('#e-proyecto'), UP); liveCase($('#e-contacto'), TITLE); { const cc = $('#carpCli'); const upd2 = () => { if (cc && FS.dir) cc.textContent = FS.dir.name + ' / ' + (mandanteSel() ? UP(mandanteSel()) : '…'); }; ['e-mandante','e-newCli'].forEach(x => { const el = document.getElementById(x); if (el) el.addEventListener('input', upd2); }); } const bb = $('#bCarpBase'); if (bb) bb.onclick = async () => { await fsPickFolder(true); if (FS.dir) openEditor('proyectos', rec ? rec.id : null); }; }
   if (kind === 'proyectos' && rec) { $('#bNewF').onclick = () => openEditor('facturas', null, rec.id); $('#bNewB').onclick = () => openEditor('boletas', null, rec.id); const bm = $('#bMove'); if (bm) bm.onclick = () => moveProject(rec.id); }
   upd();
   $('#bSave').onclick = () => save(kind, rec);
@@ -1845,7 +1851,7 @@ function resumenProyectos() {
   const sum = (arr, k) => arr.reduce((x, y) => x + y[k], 0);
   const LF = L.filter(x => x.p.documento === 'F'), LB = L.filter(x => x.p.documento !== 'F');
   const filtro = [S.fEstado ? 'Estado: ' + estadoTxt(S.fEstado) : '', S.fDoc ? (S.fDoc === 'F' ? 'Solo facturas' : 'Solo boletas') : '', S.q ? 'Búsqueda: «' + S.q + '»' : ''].filter(Boolean).join(' · ') || 'Todos los proyectos (sin cancelados)';
-  const tr = x => `<tr><td class="rp-c">${esc(x.p.codigo || '')}</td><td><b>${esc(projName(x.p))}</b><div class="rp-m">${esc(x.p.mandante || '')}</div></td>
+  const tr = x => `<tr><td class="rp-c">${esc(x.p.codigo || '')}</td><td><b>${esc(projName(x.p))}</b><div class="rp-m">${esc(x.p.mandante || '')}${rutDe(x.p.mandante) ? ' · RUT ' + esc(rutDe(x.p.mandante)) : ''}</div></td>
     <td class="rp-d">${x.p.documento === 'F' ? 'Factura' : 'Boleta'}</td><td class="n">${uf(x.p.montoUF || 0)}</td>
     <td class="n">${clp(x.a)}<div class="rp-m">${x.p.documento === 'F' ? 'sin IVA' : 'bruto'}</div></td><td class="n"><b>${clp(x.b)}</b><div class="rp-m">${x.p.documento === 'F' ? 'con IVA' : 'líquido'}</div></td>
     <td>${pillProy(x.p.estado, x.p.documento)}</td></tr>`;
@@ -1881,7 +1887,7 @@ function docCardHtml(D) {
       <div style="font-size:20px;font-weight:700;color:${c}">${D.isF ? 'FACTURA' : 'BOLETA DE HONORARIOS'} N° ${esc(D.numero || '—')}</div>
       <div style="font-size:13px">Fecha de emisión: <b>${esc(fdate(D.fecha) || '—')}</b></div></div></div>
     <div style="padding:10px 16px"><table style="border-collapse:collapse;font-size:13px;width:100%">
-      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div></div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)')}
+      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div></div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)')}
       ${row('Glosa', esc(D.glosa))}
       ${row('Tipo de cobro', esc((D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : '')))}
     </table></div>
@@ -2081,7 +2087,7 @@ function wireDocProject(kind, rec) {
     const {sal, m} = saldoProy(p, rec), facOtros = (p.montoUF || 0) - sal;
     const docOk = p.documento === (isF ? 'F' : 'B');
     box.innerHTML = `<div class="pi-h"><b class="code">${esc(p.codigo)}</b> ${esc(projName(p))}</div>
-      <dl><dt>Cliente / mandante</dt><dd>${esc(p.mandante)}</dd><dt>Contacto</dt><dd>${esc(TITLE(p.contacto)||'—')}</dd>
+      <dl><dt>Cliente / mandante</dt><dd>${esc(p.mandante)}</dd>${rutDe(p.mandante) ? `<dt>RUT</dt><dd class="n">${esc(rutDe(p.mandante))}</dd>` : ''}<dt>Contacto</dt><dd>${esc(TITLE(p.contacto)||'—')}</dd>
 ${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>`<dt>${x[0]}</dt><dd class="n">${esc(x[1])}</dd>`).join('')}<dt>Estado</dt><dd>${esc(p.estado)}</dd>
       <dt>Monto proyecto</dt><dd class="n">${uf(p.montoUF)} UF · ${clp(m.totalCLP)}</dd>
       <dt>Ya documentado</dt><dd class="n">${uf(facOtros)} UF</dd>
@@ -2141,6 +2147,14 @@ function leerTerceros() {
     montoUF: numIn(r.querySelector('.t-uf').value) || 0, doc: r.querySelector('.t-doc').value, estado: r.querySelector('.t-est').value, fechaPago: r.querySelector('.t-fec').value}))
     .filter(t => t.nombre || t.montoUF > 0);
 }
+function rutFmt(v) { // 12.345.678-9
+  const t = String(v||'').toUpperCase().replace(/[^0-9K]/g, ''); if (t.length < 2) return t;
+  const b = t.slice(0, -1).replace(/K/g,''), dv = t.slice(-1); return b.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv; }
+function rutOk(v) { const t = String(v||'').toUpperCase().replace(/[^0-9K]/g, ''); if (t.length < 2) return false;
+  const b = t.slice(0, -1), dv = t.slice(-1); if (!/^\d+$/.test(b)) return false; let s = 0, m = 2;
+  for (let i = b.length - 1; i >= 0; i--) { s += +b[i] * m; m = m === 7 ? 2 : m + 1; } const r = 11 - s % 11; return dv === (r === 11 ? '0' : r === 10 ? 'K' : String(r)); }
+function rutDe(nombre) { const c = S.clientes.find(x => x.nombre === nombre); return c && c.rut ? c.rut : ''; }
+function wireRut(inp) { if (!inp) return; inp.addEventListener('blur', () => { if (inp.value.trim()) inp.value = rutFmt(inp.value); inp.style.borderColor = inp.value.trim() && !rutOk(inp.value) ? 'var(--warn)' : ''; inp.title = inp.value.trim() && !rutOk(inp.value) ? 'Dígito verificador no coincide' : ''; }); }
 function val(id) { const el = document.getElementById('e-' + id); return el ? el.value : undefined; }
 function updateCalc(kind, rec) {
   const box = $('#calcBox'); if (!box) return;
@@ -2180,10 +2194,12 @@ async function save(kind, rec) {
       if (estado === 'Cancelado' && (!val('fechaCancel') || !val('motivoCancel'))) return err.textContent = 'Para cancelar el proyecto indique la fecha y el motivo de cancelación.';
       if (nuevoCli) {
         if (S.proyectos.some(p => p.proyecto.toLowerCase() === val('proyecto').trim().toLowerCase() && (!rec || p.id !== rec.id))) return err.textContent = 'Ya existe un proyecto con ese nombre.';
-        await put('clientes', uid(), {nombre: mandante, siglaManual: (val('newSig') || '').trim().toUpperCase()});
+        await put('clientes', uid(), {nombre: mandante, siglaManual: (val('newSig') || '').trim().toUpperCase(), rut: rutFmt((val('rut')||'').trim())});
         const cd = document.getElementById('e-newDir');
         if (cd && cd.checked && FS.dir) { try { if (await ensurePerm(FS.dir)) await FS.dir.getDirectoryHandle(dirName(mandante), {create: true}); } catch (e) { toast('Cliente agregado, pero no se pudo crear su carpeta'); } }
       }
+      if (!nuevoCli) { const rv = rutFmt((val('rut')||'').trim()), cc = S.clientes.find(c => c.nombre === mandante);
+        if (cc && rv !== (cc.rut||'')) { const {id: cid, ...crest} = cc; try { await put('clientes', cid, {...crest, rut: rv}); } catch (e) { toast('No se pudo guardar el RUT'); } } }
       const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: val('documento'),
         montoUF: m, valorUF: v, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
       if (S.proyectos.some(p => projName(p) === base.proyecto && (!rec || p.id !== rec.id))) return err.textContent = 'Ya existe un proyecto con ese nombre.';
@@ -2244,7 +2260,7 @@ async function exportCSV(what) {
     S.boletas.forEach(b => { const k = calcBoleta(b), p = proyById(b.proyectoId); rows.push([b.fecha,b.numero,p?.codigo,p?.proyecto,mandanteDe(b),b.montoUF,k.v,k.liq,k.ret,k.total,k.r,b.estado,b.fechaPago,b.retiene,b.obs]); }); }
   else if (what === 'cartera') { rows.push(['Código','Mandante','Proyecto','Documento','Estado proyecto','Monto UF','Monto $','Documentado UF','Documentado $','Pagado $','Pendiente de pago $','Por facturar UF','Por facturar $','Status de cobro']);
     S.proyectos.forEach(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; rows.push([p.codigo,p.mandante,p.proyecto,p.documento==='F'?'Factura ING Estructural':'Boleta Germán Aguilera',p.estado,p.montoUF,m.totalCLP,m.facturadoUF,m.pagado+m.porPagar,m.pagado,m.porPagar,Math.max(m.porFacturar,0),Math.round(Math.max(m.porFacturar,0)*v),cobroDe(p,m)]); }); }
-  else if (what === 'clientes') { rows.push(['Empresa mandante','Sigla']); S.clientes.forEach(c => rows.push([c.nombre, sigla(c.nombre)])); }
+  else if (what === 'clientes') { rows.push(['Empresa mandante','RUT','Sigla']); S.clientes.forEach(c => rows.push([c.nombre, c.rut || '', sigla(c.nombre)])); }
   const csv = '﻿' + rows.map(r => r.map(x => typeof x === 'number' ? String(x).replace('.', ',') : q(x)).join(sep)).join('\r\n');
   if (!downloads) { // archivo abierto directamente en un navegador: descarga normal
     try { const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'})); const aEl = document.createElement('a'); aEl.href = url; aEl.download = `${what}_ING_Estructural_${today()}.csv`; document.body.appendChild(aEl); aEl.click(); aEl.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
@@ -2302,7 +2318,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1124. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1135. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
