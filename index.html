@@ -655,6 +655,15 @@ td.c-pp{background:color-mix(in srgb,#dc2626 6%,transparent)!important} td.c-pp.
 :root[data-theme="dark"] td.c-fac.on{color:#7fb2f0} :root[data-theme="dark"] td.c-pf.on{color:#fb923c} :root[data-theme="dark"] td.c-pag.on{color:#4ade80} :root[data-theme="dark"] td.c-pp.on{color:#f87171} :root[data-theme="dark"] td.c-pct{color:#c4a5ff}
 
 .pill.e-odc{background:#e0e7ff;color:#3730a3;border:1px solid #6366f1}
+#visorBar{background:#7c3aed;color:#fff;font-weight:700;text-align:center;padding:4px 8px;font-size:12px;letter-spacing:.04em;border-radius:4px;margin-bottom:6px}
+html.pw-visor [data-act="newProy"],html.pw-visor [data-act="newFac"],html.pw-visor [data-act="newBol"],html.pw-visor [data-act="addCli"],html.pw-visor [data-act="cliDirs"],html.pw-visor #newCli,
+html.pw-visor #fbSave,html.pw-visor #fbSaveAs,html.pw-visor #fbNew,html.pw-visor [data-act="delCli"],html.pw-visor [data-act="savePar"]{display:none !important}
+html.pw-visor [data-sm],html.pw-visor #pane .ptab input,html.pw-visor #pane input[data-par]{pointer-events:none;opacity:.7}
+html.pw-visor .cobrar.nd{pointer-events:none;cursor:default}
+.visor-note{background:#ede9fe;color:#5b21b6;font-weight:700;padding:4px 8px;border-radius:4px;font-size:12px;margin:4px 0 8px}
+#visorOff{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center}
+#visorOff .vo-box{background:var(--panel,#fff);color:var(--ink,#111);border-radius:10px;padding:18px;min-width:300px;max-width:92vw;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+#visorOff input{width:100%;padding:8px;font-size:15px}
 .rp-box{max-width:1000px!important;width:96vw}
 .rp-sheet{background:#fff;color:#1a1a1a;padding:12px 14px;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px}
 .rp-head{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:2px solid #1d4f91;padding-bottom:6px;margin-bottom:8px}
@@ -805,15 +814,21 @@ function localLoad() {
 }
 function localSave() { FS.dirty = true; fsBar(); if (FS.auto && FS.file) fsSaveSoon(); try { localStorage.setItem('ing_admin_local', JSON.stringify({clientes:S.clientes,proyectos:S.proyectos,facturas:S.facturas,boletas:S.boletas,params:S.params,imp:S.imp})); } catch (e) {} }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+// ---- Modo visor (solo lectura, por equipo): bloquea toda escritura de datos
+const VISOR = () => { try { return localStorage.getItem('pw_visor') === '1'; } catch (e) { return false; } };
+function visorStop() { if (!VISOR()) return false; toast('Modo visor: este equipo es solo de lectura.'); return true; }
 async function put(col, id, data) {
+  if (visorStop()) throw new Error('Modo visor: solo lectura');
   if (LOCAL) { const arr = S[col]; const i = arr.findIndex(x => x.id === id); const rec = {...data, id}; if (i >= 0) arr[i] = rec; else arr.push(rec); localSave(); render(); return; }
   await db.collection(col).doc(id).set(data);
 }
 async function del(col, id) {
+  if (visorStop()) throw new Error('Modo visor: solo lectura');
   if (LOCAL) { S[col] = S[col].filter(x => x.id !== id); localSave(); render(); return; }
   await db.collection(col).doc(id).delete();
 }
 async function putConfig(id, data) {
+  if (visorStop()) throw new Error('Modo visor: solo lectura');
   if (LOCAL) { if (id === 'params') S.params = {...DEF_PARAMS, ...data}; else S.imp[id] = data; localSave(); render(); return; }
   await db.collection('config').doc(id).set(data);
 }
@@ -1270,6 +1285,7 @@ function igc(base) {
 
 /* ------------------------------------------------------------------ render general */
 function render() {
+  visorUI();
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === S.tab ? 'true' : 'false'));
   renderKpis();
   const ready = LOCAL || (S.loaded.proyectos && S.loaded.facturas && S.loaded.boletas && S.loaded.clientes);
@@ -1769,6 +1785,8 @@ function openEditor(kind, id, preProy) {
       <label class="full">Descripción / glosa del documento<textarea id="e-glosa" rows="2" placeholder="Se completa con el proyecto elegido">${esc(r.glosa||'')}</textarea></label>
       <label>Tipo de cobro<select id="e-tipoCobro">${TIPOS_COBRO.map(t=>`<option ${t===(r.tipoCobro||'Total')?'selected':''}>${t}</option>`).join('')}</select></label>
       <label>% del monto del proyecto<input id="e-pct" inputmode="decimal" placeholder="ej. 30"></label>
+      ${isF ? '' : `<label>Ingresar monto en<select id="e-moneda"><option value="UF" ${r.ingreso !== 'CLP' ? 'selected' : ''}>UF</option><option value="CLP" ${r.ingreso === 'CLP' ? 'selected' : ''}>$ (pesos)</option></select></label>
+      <label id="clpBox" ${r.ingreso === 'CLP' ? '' : 'hidden'}>Monto bruto ($)<input id="e-montoCLP" inputmode="decimal" value="${r.montoCLP != null ? String(r.montoCLP) : ''}" placeholder="ej. 2.500.000"></label>`}
       <label>${isF?'Monto total con IVA (UF)':'Monto bruto (UF)'}<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required></label>
       <label>Valor UF del día ($)<input id="e-valorUF" inputmode="decimal" value="${r.valorUF ?? ''}" placeholder="${uf(P().ufRef)} (referencia)"></label>
       <label>Estado de pago<select id="e-estado">${ESTADOS_DOC.map(e=>`<option ${e===r.estado?'selected':''}>${e}</option>`).join('')}</select></label>
@@ -1791,10 +1809,14 @@ function openEditor(kind, id, preProy) {
   document.addEventListener('keydown', function k(e) { if (e.key === 'Escape') { closeEditor(); document.removeEventListener('keydown', k); } });
   const upd = () => updateCalc(kind, rec);
   root.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', upd));
+  if (kind === 'boletas') wireMoneda();
   if (kind !== 'proyectos') wireDocProject(kind, rec); else { wireTerceros(rec); liveCase($('#e-newCli'), UP); liveCase($('#e-newSig'), UP); liveCase($('#e-proyecto'), UP); liveCase($('#e-contacto'), TITLE); { const cc = $('#carpCli'); const upd2 = () => { if (cc && FS.dir) cc.textContent = FS.dir.name + ' / ' + (mandanteSel() ? UP(mandanteSel()) : '…'); }; ['e-mandante','e-newCli'].forEach(x => { const el = document.getElementById(x); if (el) el.addEventListener('input', upd2); }); } const bb = $('#bCarpBase'); if (bb) bb.onclick = async () => { await fsPickFolder(true); if (FS.dir) openEditor('proyectos', rec ? rec.id : null); }; }
   if (kind === 'proyectos' && rec) { $('#bNewF').onclick = () => openEditor('facturas', null, rec.id); $('#bNewB').onclick = () => openEditor('boletas', null, rec.id); const bm = $('#bMove'); if (bm) bm.onclick = () => moveProject(rec.id); }
   upd();
   $('#bSave').onclick = () => save(kind, rec);
+  if (VISOR()) { root.querySelectorAll('#frm input, #frm select, #frm textarea, #frm button').forEach(el => { el.disabled = true; });
+    ['bSave', 'bDel'].forEach(x => { const b = document.getElementById(x); if (b) { b.style.display = 'none'; b.disabled = true; } });
+    const h = root.querySelector('.drawer h3'); if (h) h.insertAdjacentHTML('afterend', '<p class="visor-note">👁 Modo visor — solo lectura</p>'); }
   if ($('#bDocOut')) $('#bDocOut').onclick = () => docSalida(kind);
   if (rec) { $('#bDel').onclick = () => { $('#delConfirm').hidden = false; }; $('#bDelNo').onclick = () => { $('#delConfirm').hidden = true; };
     $('#bDelYes').onclick = async () => { try { await del(kind, rec.id); toast('Registro eliminado'); closeEditor(); } catch (e) { $('#err').textContent = 'No se pudo eliminar: ' + (e.code||e.message); } }; }
@@ -2033,6 +2055,18 @@ function saldoProy(p, rec) { // saldo por facturar sin contar el documento que s
   if (rec && rec.proyectoId === p.id && rec.estado !== 'Anulada') sal += rec.montoUF || 0;
   return {fact: (p.montoUF || 0) - (p.estado === 'Cancelado' ? 0 : sal) , sal, m};
 }
+// Boleta: el monto se puede ingresar en UF o en $ (bruto). En $ la UF se calcula con el valor UF del día (o el de referencia).
+function wireMoneda() {
+  const mo = $('#e-moneda'), cl = $('#e-montoCLP'), mU = $('#e-montoUF'), vU = $('#e-valorUF'), box = $('#clpBox'); if (!mo) return;
+  let propio = false;
+  const vuf = () => numIn(vU.value) || P().ufRef;
+  const pesos = t => { const d = String(t || '').replace(/[^\d]/g, ''); return d ? +d : null; };
+  const desdeCLP = () => { if (mo.value !== 'CLP') return; const c = pesos(cl.value); if (c == null) return; propio = true; mU.value = String(Math.round(c / vuf() * 10000) / 10000).replace('.', ','); mU.dispatchEvent(new Event('input')); propio = false; };
+  const desdeUF = () => { if (mo.value !== 'CLP' || propio) return; const u = numIn(mU.value); if (u == null) return; cl.value = Math.round(u * vuf()).toLocaleString('es-CL'); };
+  const modo = () => { const c = mo.value === 'CLP'; box.hidden = !c; mU.readOnly = c; mU.title = c ? 'Se calcula desde el monto en $' : ''; if (c) { if (!cl.value) desdeUF(); else desdeCLP(); } };
+  mo.addEventListener('change', modo); cl.addEventListener('input', desdeCLP); vU.addEventListener('input', () => { if (mo.value === 'CLP') desdeCLP(); }); mU.addEventListener('input', desdeUF);
+  modo();
+}
 function wireDocProject(kind, rec) {
   const isF = kind === 'facturas', sel = $('#e-proyectoId'), mU = $('#e-montoUF'), gl = $('#e-glosa'), pc = $('#e-pct'), tc = $('#e-tipoCobro');
   let autoM = rec ? null : mU.value, autoG = rec ? null : gl.value;
@@ -2174,7 +2208,9 @@ async function save(kind, rec) {
       if (m == null) return err.textContent = 'Ingrese el monto en UF.';
       if (S[kind].some(d => +d.numero === numero && (!rec || d.id !== rec.id))) return err.textContent = 'Ese número ya está registrado.';
       const data = {fecha, numero, proyectoId: val('proyectoId'), glosa: val('glosa').trim(), tipoCobro: val('tipoCobro'), montoUF: m, valorUF: v, estado: val('estado'), fechaPago: val('fechaPago'), obs: val('obs')};
-      if (kind === 'boletas') data.retiene = val('retiene');
+      if (kind === 'boletas') { data.retiene = val('retiene');
+        if (val('moneda') === 'CLP') { const c = (d => d ? +d : null)(String(val('montoCLP') || '').replace(/[^\d]/g, '')); if (c == null) return err.textContent = 'Ingrese el monto bruto en $.'; const vv = v || P().ufRef; data.ingreso = 'CLP'; data.montoCLP = Math.round(c); data.valorUF = vv; data.montoUF = c / vv; }
+        else { data.ingreso = 'UF'; data.montoCLP = null; } }
       const prA = proyById(data.proyectoId), saldoDesp = prA ? saldoProy(prA, rec).sal - (data.estado === 'Anulada' ? 0 : (m || 0)) : 0;   // saldo por facturar tras este documento
       await put(kind, rec ? rec.id : uid(), data);
       let msgEst = '';
@@ -2214,6 +2250,30 @@ async function exportCSV(what) {
   try { await downloads.save({filename: `${what}_ING_Estructural_${today()}.csv`, data: csv}); } catch (e) { if (e.code !== 'declined') toast('No se pudo descargar (' + e.code + ')'); }
 }
 
+function visorUI() {
+  const on = VISOR(); document.documentElement.classList.toggle('pw-visor', on);
+  let bar = document.getElementById('visorBar');
+  if (on && !bar) { bar = document.createElement('div'); bar.id = 'visorBar'; bar.textContent = '👁 MODO VISOR — solo lectura en este equipo'; const st = document.querySelector('.stickTop'); (st || document.body).prepend(bar); }
+  if (!on && bar) bar.remove();
+  const hoy = document.getElementById('hoyBox'); if (!hoy) return;
+  let b = document.getElementById('visorBtn');
+  if (!b) { b = document.createElement('button'); b.id = 'visorBtn'; b.className = 'pwout'; b.onclick = visorToggle; hoy.appendChild(b); }
+  b.textContent = on ? '👁 Visor' : '👁'; b.title = on ? 'Modo visor activo: clic para salir (pide la contraseña)' : 'Activar modo visor (solo lectura) en este equipo';
+}
+async function visorToggle() {
+  if (!VISOR()) { if (!confirmVisor()) return; try { localStorage.setItem('pw_visor', '1'); } catch (e) {} visorUI(); render(); toast('Modo visor activado en este equipo.'); return; }
+  let box = document.getElementById('visorOff'); if (box) box.remove();
+  box = document.createElement('div'); box.id = 'visorOff';
+  box.innerHTML = `<div class="vo-box"><h3>Salir del modo visor</h3><p class="small muted">${window.PW_CLOUD && window.PW_CLOUD.checkPassword ? 'Ingrese la contraseña de su usuario de POWER.' : 'Ingrese la clave: escriba VISOR para confirmar.'}</p>
+    <form id="voF"><input id="voP" type="password" autocomplete="current-password" placeholder="Contraseña"><div style="display:flex;gap:8px;margin-top:10px"><button class="btn" type="submit">Salir del modo visor</button><button class="btn ghost" type="button" id="voC">Cancelar</button></div></form><div class="err" id="voE"></div></div>`;
+  document.body.appendChild(box); const inp = box.querySelector('#voP'); setTimeout(() => inp.focus(), 50);
+  box.querySelector('#voC').onclick = () => box.remove();
+  box.querySelector('#voF').onsubmit = async e => { e.preventDefault(); const er = box.querySelector('#voE'); er.textContent = 'Verificando…';
+    try { if (window.PW_CLOUD && window.PW_CLOUD.checkPassword) await window.PW_CLOUD.checkPassword(inp.value); else if (inp.value.trim().toUpperCase() !== 'VISOR') throw 0;
+      try { localStorage.removeItem('pw_visor'); } catch (x) {} box.remove(); visorUI(); render(); toast('Modo visor desactivado.'); }
+    catch (x) { er.textContent = !navigator.onLine ? 'Sin conexión: no se puede verificar la contraseña.' : 'Contraseña incorrecta.'; } };
+}
+let visorArm = 0; function confirmVisor() { if (Date.now() - visorArm < 4000) return true; visorArm = Date.now(); toast('Vuelva a pulsar 👁 para dejar este equipo en modo visor (solo lectura).'); return false; }
 let tt; function toast(msg) { let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role','status'); document.body.appendChild(t); } t.textContent = msg; clearTimeout(tt); tt = setTimeout(() => t.remove(), 2600); }
 
 /* ---------- fecha del día y valor UF (mindicador.cl, con respaldo en la UF de referencia de Parámetros) ---------- */
@@ -2240,7 +2300,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261001-1932. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1105. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
