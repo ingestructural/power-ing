@@ -1326,7 +1326,7 @@ function renderKpis() {
   S.proyectos.filter(p => ADJ.includes(p.estado)).forEach(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const falta = Math.max(m.totalCLP - m.pagado, 0);
     if (falta <= 0) return; ufIng += falta / v; if (p.documento === 'B') { ingB += falta; nB++; } else { ingF += falta; nF++; }
     const tc = Math.round((m.tercCostoNetoUF || 0) * v) - Math.round(((p.terceros||[]).filter(t => t.estado === 'Pagado' && (t.montoUF||0) > 0).reduce((a, t) => a + (p.documento === 'F' && t.doc === 'F' ? t.montoUF / (1 + P().iva) : t.montoUF), 0)) * v);
-    propioIng += (p.documento === 'F' ? falta / (1 + P().iva) : falta) - Math.max(0, tc); });
+    propioIng += (p.documento === 'F' ? falta / (1 + P().iva) : falta * (1 - rateFor(y))) - Math.max(0, tc); });
   let tercPend = 0, tercPendUF = 0; S.proyectos.filter(p => p.estado !== 'Cancelado').forEach(p => { const m = proyMetrics(p); tercPend += m.tercPendCLP; tercPendUF += m.tercPendUF; });
   $('#kpis').innerHTML = `
     <div class="kpi a" title="Proyectos no cancelados, no terminados y no «no adjudicados»"><small>Activos</small><b>${activos}</b></div>
@@ -1338,7 +1338,7 @@ function renderKpis() {
     <div class="kpi x g kg3" title="Proyectos adjudicados con boleta G. Aguilera: monto bruto menos lo ya pagado (incluye lo aún no emitido)"><small>Bol. por ingresar</small><b>${clp(ingB)}</b><i class="kt">bruto · líq. ≈ ${clp(ingB*(1-rateFor(y)))}</i><em>${nB} proy. adjudicado${nB===1?'':'s'}</em></div>
     <div class="kpi x pt" title="Suma de pagos a terceros aún no pagados (todos los proyectos no cancelados)"><small>A pagar terceros</small><b>${clp(tercPend)}</b><i class="kt">no es tuyo</i><em>${uf(tercPendUF)} UF</em></div>
     <div class="kpi x t ky1" title="Todo lo adjudicado y aún no pagado (facturas + boletas)"><small>Total por ingresar</small><b>${clp(ingF + ingB)}</b><i class="kt">c/IVA + bol. bruto</i><em>${uf(ufIng)} UF</em></div>
-    <div class="kpi x ky2" title="Lo que te va a quedar de lo adjudicado: facturas en neto (sin IVA) y boletas en bruto, menos lo pendiente a terceros"><small>Propio por ingresar</small><b>${clp(propioIng)}</b><i class="kt">neto s/IVA − terceros</i></div>`;
+    <div class="kpi x ky2" title="Lo que te va a quedar de lo adjudicado: facturas en neto (sin IVA) y boletas en líquido (bruto menos retención del año), menos lo pendiente a terceros"><small>Propio por ingresar</small><b>${clp(propioIng)}</b><i class="kt">fac. neto + bol. líq. − terceros</i></div>`;
 }
 
 /* ------------------------------------------------------------------ vistas */
@@ -2333,7 +2333,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1159. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1209. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
