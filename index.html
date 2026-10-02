@@ -743,6 +743,21 @@ nav.tabs button[aria-selected="true"]:not(.ti):not(.tg){color:var(--bar)!importa
   .stickTop.compact header.top .logo,.stickTop.compact header.top .brand p,.stickTop.compact .who,.stickTop.compact .toprt,.stickTop.compact .kpis{display:none}
   .stickTop.compact header.top{padding-bottom:4px} .stickTop.compact nav.tabs{margin-top:6px}
 }
+
+/* KPI: facturas azules, boletas verdes, totales amarillos */
+#kpis .kpi.kb1{background:color-mix(in srgb,#1f3864 13%,var(--panel));border-color:color-mix(in srgb,#1f3864 35%,transparent);border-top-color:#1f3864}
+#kpis .kpi.kb2{background:color-mix(in srgb,#0060c1 14%,var(--panel));border-color:color-mix(in srgb,#0060c1 35%,transparent);border-top-color:#0060c1}
+#kpis .kpi.kb3{background:color-mix(in srgb,#3b82d6 20%,var(--panel));border-color:color-mix(in srgb,#0060c1 45%,transparent);border-top-color:#1f5fa8}
+#kpis .kpi.kb1 b,#kpis .kpi.kb2 b,#kpis .kpi.kb3 b{color:#0b4a9a}
+#kpis .kpi.kg1{background:color-mix(in srgb,#375623 14%,var(--panel));border-color:color-mix(in srgb,#375623 35%,transparent);border-top-color:#375623}
+#kpis .kpi.kg2{background:color-mix(in srgb,#6aa84f 17%,var(--panel));border-color:color-mix(in srgb,#4d8a32 35%,transparent);border-top-color:#4d8a32}
+#kpis .kpi.kg3{background:color-mix(in srgb,#3fa46a 20%,var(--panel));border-color:color-mix(in srgb,#2f7a4c 45%,transparent);border-top-color:#2f7a4c}
+#kpis .kpi.kg1 b,#kpis .kpi.kg2 b,#kpis .kpi.kg3 b{color:#2f5a1c}
+#kpis .kpi.ky1{background:color-mix(in srgb,#facc15 30%,var(--panel));border-color:color-mix(in srgb,#ca8a04 50%,transparent);border-top-color:#ca8a04}
+#kpis .kpi.ky2{background:color-mix(in srgb,#fde047 22%,var(--panel));border-color:color-mix(in srgb,#eab308 45%,transparent);border-top-color:#eab308}
+#kpis .kpi.ky1 b,#kpis .kpi.ky2 b{color:#854d0e}
+#kpis .kpi.kg1{flex:1 1 168px;min-width:168px}
+@media (max-width:700px){#kpis .kpi.kg1{flex:0 0 160px;min-width:160px}}
 </style>
 
 <div class="wrap">
@@ -1315,15 +1330,15 @@ function renderKpis() {
   let tercPend = 0, tercPendUF = 0; S.proyectos.filter(p => p.estado !== 'Cancelado').forEach(p => { const m = proyMetrics(p); tercPend += m.tercPendCLP; tercPendUF += m.tercPendUF; });
   $('#kpis').innerHTML = `
     <div class="kpi a" title="Proyectos no cancelados, no terminados y no «no adjudicados»"><small>Activos</small><b>${activos}</b></div>
-    <div class="kpi i"><small>Facturado ${y}</small><b>${clp(fy.reduce((s,f)=>s+calcFactura(f).total,0))}</b><i class="kt">total con IVA</i></div>
-    <div class="kpi i"><small>Facturas x cobrar</small><b>${clp(fCob)}</b><i class="kt">total con IVA</i></div>
-    <div class="kpi g"><small>Honorarios ${y}</small><b>${clp(by.reduce((s,b)=>s+calcBoleta(b).total,0))}</b><i class="kt">bruto</i></div>
-    <div class="kpi g" title="Líquido de boletas emitidas aún no pagadas"><small>Boletas x cobrar</small><b>${clp(bCob)}</b><i class="kt liq">líquido</i></div>
-    <div class="kpi x i" title="Proyectos adjudicados con factura ING: monto total con IVA menos lo ya pagado (incluye lo aún no facturado)"><small>Por ingresar fact.</small><b>${clp(ingF)}</b><i class="kt">total con IVA</i><em>${nF} proy. adjudicado${nF===1?'':'s'}</em></div>
-    <div class="kpi x g" title="Proyectos adjudicados con boleta G. Aguilera: monto bruto menos lo ya pagado (incluye lo aún no emitido)"><small>Por ingresar bol.</small><b>${clp(ingB)}</b><i class="kt">bruto · líq. ≈ ${clp(ingB*(1-rateFor(y)))}</i><em>${nB} proy. adjudicado${nB===1?'':'s'}</em></div>
+    <div class="kpi i kb1"><small>Facturado ${y}</small><b>${clp(fy.reduce((s,f)=>s+calcFactura(f).total,0))}</b><i class="kt">total con IVA</i></div>
+    <div class="kpi i kb2"><small>Facturas x cobrar</small><b>${clp(fCob)}</b><i class="kt">total con IVA</i></div>
+    <div class="kpi g kg1" title="Boletas de honorarios emitidas en el año (bruto)"><small>Boletas emitidas ${y}</small><b>${clp(by.reduce((s,b)=>s+calcBoleta(b).total,0))}</b><i class="kt">bruto</i></div>
+    <div class="kpi g kg2" title="Líquido de boletas emitidas aún no pagadas"><small>Boletas x cobrar</small><b>${clp(bCob)}</b><i class="kt liq">líquido</i></div>
+    <div class="kpi x i kb3" title="Proyectos adjudicados con factura ING: monto total con IVA menos lo ya pagado (incluye lo aún no facturado)"><small>Fac. por ingresar</small><b>${clp(ingF)}</b><i class="kt">total con IVA</i><em>${nF} proy. adjudicado${nF===1?'':'s'}</em></div>
+    <div class="kpi x g kg3" title="Proyectos adjudicados con boleta G. Aguilera: monto bruto menos lo ya pagado (incluye lo aún no emitido)"><small>Bol. por ingresar</small><b>${clp(ingB)}</b><i class="kt">bruto · líq. ≈ ${clp(ingB*(1-rateFor(y)))}</i><em>${nB} proy. adjudicado${nB===1?'':'s'}</em></div>
     <div class="kpi x pt" title="Suma de pagos a terceros aún no pagados (todos los proyectos no cancelados)"><small>A pagar terceros</small><b>${clp(tercPend)}</b><i class="kt">no es tuyo</i><em>${uf(tercPendUF)} UF</em></div>
-    <div class="kpi x pr" title="Lo que te va a quedar de lo adjudicado: facturas en neto (sin IVA) y boletas en bruto, menos lo pendiente a terceros"><small>Propio x ingresar</small><b>${clp(propioIng)}</b><i class="kt liq">neto s/IVA − terceros</i></div>
-    <div class="kpi x t" title="Todo lo adjudicado y aún no pagado (facturas + boletas)"><small>Total x ingresar</small><b>${clp(ingF + ingB)}</b><i class="kt">c/IVA + bol. bruto</i><em>${uf(ufIng)} UF</em></div>`;
+    <div class="kpi x t ky1" title="Todo lo adjudicado y aún no pagado (facturas + boletas)"><small>Total por ingresar</small><b>${clp(ingF + ingB)}</b><i class="kt">c/IVA + bol. bruto</i><em>${uf(ufIng)} UF</em></div>
+    <div class="kpi x ky2" title="Lo que te va a quedar de lo adjudicado: facturas en neto (sin IVA) y boletas en bruto, menos lo pendiente a terceros"><small>Propio por ingresar</small><b>${clp(propioIng)}</b><i class="kt">neto s/IVA − terceros</i></div>`;
 }
 
 /* ------------------------------------------------------------------ vistas */
@@ -2318,7 +2333,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1135. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261002-1153. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
