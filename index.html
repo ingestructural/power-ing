@@ -778,6 +778,8 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
 
 .refs label.smf{font-size:.72rem;color:var(--muted)} .refs label.smf input{font-size:.78rem;padding:4px 6px}
 .refs label.full2{grid-column:span 3}
+.refs input.rfec{margin-top:3px;font-size:.74rem;padding:3px 6px;color:var(--muted)}
+.refd{display:block;font-size:.66rem;font-weight:400;color:var(--muted);font-family:var(--ff-b)}
 .smi{font-size:.72rem !important;color:var(--muted)}
 </style>
 
@@ -1679,7 +1681,8 @@ function bjProyectos(it) {   // proyectos candidatos: por código, OC, HES, HAS 
 }
 function bjCambios(it, p) {   // lo que se modificaría en el proyecto
   const ch = [];
-  ['oc', 'hes', 'has', 'we'].forEach(k => { if (it[k] && String(it[k]).trim() !== String(p[k] || '').trim()) ch.push([k, k.toUpperCase(), p[k] || '—', String(it[k]).trim()]); });
+  ['oc', 'hes', 'has', 'we'].forEach(k => { if (it[k] && String(it[k]).trim() !== String(p[k] || '').trim()) ch.push([k, k.toUpperCase(), p[k] || '—', String(it[k]).trim()]);
+    const kf = k + 'Fecha'; if (it[kf] && /^\d{4}-\d{2}-\d{2}$/.test(it[kf]) && it[kf] !== (p[kf] || '')) ch.push([kf, 'Fecha ' + k.toUpperCase(), fdate(p[kf]) || '—', it[kf]]); });
   if (it.estado && ESTADOS_PROY.includes(it.estado) && it.estado !== p.estado) ch.push(['estado', 'Estado', estadoTxt(p.estado, p.documento), estadoTxt(it.estado, p.documento)]);
   if (it.glosa && it.glosa !== (p.glosaFact || '')) ch.push(['glosaFact', 'Glosa para la factura/boleta', p.glosaFact || '—', it.glosa]);
   if (it.contacto && !p.contacto) ch.push(['contacto', 'Contacto', '—', TITLE(it.contacto)]);
@@ -1701,7 +1704,7 @@ function vBandeja() {
       const opts = S.proyectos.slice().sort((a, b) => String(b.codigo).localeCompare(String(a.codigo))).map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.codigo)} · ${esc(projName(x)).slice(0, 60)}${cand.some(c => c.p.id === x.id) ? ' ← coincide por ' + cand.find(c => c.p.id === x.id).por : ''}</option>`).join('');
       const ch = p ? bjCambios(it, p) : [];
       cuerpo += `<label class="small bj-sel">Proyecto <select data-bjp="${esc(it.id)}"><option value="">${cand.length ? 'Elegir…' : 'No encontré coincidencia — elegir…'}</option>${opts}</select></label>`;
-      if (p) cuerpo += ch.length ? `<table class="bj-ch"><tr><th>Campo</th><th>Hoy</th><th>Queda</th></tr>${ch.map(c => `<tr><td>${c[1]}</td><td class="muted">${esc(c[2])}</td><td><b>${esc(c[3])}</b></td></tr>`).join('')}</table>` : '<p class="small muted">El proyecto ya tiene estos datos; no hay cambios.</p>';
+      if (p) cuerpo += ch.length ? `<table class="bj-ch"><tr><th>Campo</th><th>Hoy</th><th>Queda</th></tr>${ch.map(c => `<tr><td>${c[1]}</td><td class="muted">${esc(c[2])}</td><td><b>${esc(/Fecha$/.test(c[0]) ? fdate(c[3]) : c[3])}</b></td></tr>`).join('')}</table>` : '<p class="small muted">El proyecto ya tiene estos datos; no hay cambios.</p>';
       if (!it.hecho) acc = `<button class="btn" data-bja="aplicar" data-id="${esc(it.id)}" ${p && ch.length ? '' : 'disabled'}>Aplicar cambios</button>`;
     } else if (it.tipo === 'nuevo') {
       const c = bjCliente(it.mandante || it.cliente, it.rut);
@@ -1710,7 +1713,7 @@ function vBandeja() {
       if (!it.hecho) acc = `<button class="btn" data-bja="crear" data-id="${esc(it.id)}">Revisar y crear proyecto…</button>`;
     } else if (!it.hecho) acc = `<button class="btn ghost" data-bja="listo" data-id="${esc(it.id)}">Marcar como leído</button>`;
     const mUF = bjMontoUF(it);
-    const datos = dl([['Cliente', it.cliente], ['RUT', it.rut ? rutFmt(it.rut) : ''], ['Proyecto', it.proyecto], ['Código', it.codigo], ['OC / OS / ODC', it.oc], ['HES', it.hes], ['HAS', it.has], ['WE', it.we],
+    const datos = dl([['Cliente', it.cliente], ['RUT', it.rut ? rutFmt(it.rut) : ''], ['Proyecto', it.proyecto], ['Código', it.codigo], ['OC / OS / ODC', it.oc ? it.oc + (it.ocFecha ? ' · ' + fdate(it.ocFecha) : '') : ''], ['HES', it.hes ? it.hes + (it.hesFecha ? ' · ' + fdate(it.hesFecha) : '') : ''], ['HAS', it.has ? it.has + (it.hasFecha ? ' · ' + fdate(it.hasFecha) : '') : ''], ['WE', it.we ? it.we + (it.weFecha ? ' · ' + fdate(it.weFecha) : '') : ''],
       ['Monto', mUF != null ? uf(mUF) + ' UF' + (it.montoCLP ? ' (' + clp(+bjDig(it.montoCLP)) + ')' : '') + (it.montoNota ? ' · ' + it.montoNota : '') : ''], ['Documento', it.documento === 'B' ? 'Boleta' : it.documento === 'F' ? 'Factura' : ''],
       ['Contacto', it.contacto], ['Glosa sugerida', it.glosa], ['Adjuntos', (it.adjuntos || []).join(', ')]]);
     return `<article class="bj-card ${it.hecho ? 'bj-done' : ''}" style="border-left-color:${t[1]}">
@@ -1768,7 +1771,7 @@ function bindBandeja(pane) {
       }
       if (a === 'crear') {
         const c = bjCliente(it.mandante || it.cliente, it.rut);
-        const pre = {mandante: c ? c.nombre : '', proyecto: UP(it.proyecto || it.asunto || ''), oc: it.oc || '', hes: it.hes || '', has: it.has || '', we: it.we || '', contacto: it.contacto || '',
+        const pre = {mandante: c ? c.nombre : '', proyecto: UP(it.proyecto || it.asunto || ''), oc: it.oc || '', hes: it.hes || '', has: it.has || '', we: it.we || '', ocFecha: it.ocFecha || '', hesFecha: it.hesFecha || '', hasFecha: it.hasFecha || '', weFecha: it.weFecha || '', contacto: it.contacto || '',
           documento: it.documento === 'B' ? 'B' : 'F', montoUF: bjMontoUF(it), estado: it.estado && ESTADOS_PROY.includes(it.estado) ? it.estado : (it.oc ? 'Adjudicado' : 'En oferta'),
           obs: `[${fdate(it.recibido || today())}] Desde correo: ${it.asunto || ''}`, _newCli: c ? '' : UP(it.mandante || it.cliente || ''), _rut: it.rut ? rutFmt(it.rut) : '', _extra: it.glosa ? {glosaFact: it.glosa} : {}, _bj: it.id};
         openEditor('proyectos', null, null, pre);
@@ -1930,10 +1933,10 @@ function openEditor(kind, id, preProy, pre) {
         <div><button type="button" class="btn ghost mini" id="bAddTerc">+ Agregar tercero</button></div>
         <div id="tercSum" class="tercsum"></div></div>
       <div class="refs full"><div class="rt">Referencias del cliente (informativo)</div>
-        <label title="Número de orden de compra, orden de servicio u ODC">N° OC / OS / ODC<input id="e-oc" value="${esc(r.oc||'')}"></label>
-        <label>HES<input id="e-hes" value="${esc(r.hes||'')}" title="Hoja de entrada de servicio"></label>
-        <label>HAS<input id="e-has" value="${esc(r.has||'')}" title="Hoja de aceptación de servicio"></label>
-        <label>WE<input id="e-we" value="${esc(r.we||'')}"></label>
+        <label title="Número de orden de compra, orden de servicio u ODC">N° OC / OS / ODC<input id="e-oc" value="${esc(r.oc||'')}"><input id="e-ocFecha" class="rfec" type="date" value="${r.ocFecha||''}" title="Fecha de emisión de la OC"></label>
+        <label>HES<input id="e-hes" value="${esc(r.hes||'')}" title="Hoja de entrada de servicio"><input id="e-hesFecha" class="rfec" type="date" value="${r.hesFecha||''}" title="Fecha de emisión de la HES"></label>
+        <label>HAS<input id="e-has" value="${esc(r.has||'')}" title="Hoja de aceptación de servicio"><input id="e-hasFecha" class="rfec" type="date" value="${r.hasFecha||''}" title="Fecha de emisión de la HAS"></label>
+        <label>WE<input id="e-we" value="${esc(r.we||'')}"><input id="e-weFecha" class="rfec" type="date" value="${r.weFecha||''}" title="Fecha de emisión de la WE"></label>
         <label class="smf">Planta / sede<input id="e-planta" value="${esc(r.planta||'')}" placeholder="Ej. Mulchen, Nacimiento"></label>
         <label class="smf full2">Carpeta del proyecto<input id="e-carpetaRuta" data-noupper value="${esc(r.carpetaRuta||'')}" placeholder="Ej. 1PLANOS\Cmpc\Mulchen\Ampliación Nave Drymill"></label></div>
       <label class="full">Observaciones<textarea id="e-obs" rows="2">${esc(r.obs||'')}</textarea></label>
@@ -2050,7 +2053,7 @@ function docCardHtml(D) {
       <div style="font-size:20px;font-weight:700;color:${c}">${D.isF ? 'FACTURA' : 'BOLETA DE HONORARIOS'} N° ${esc(D.numero || '—')}</div>
       <div style="font-size:13px">Fecha de emisión: <b>${esc(fdate(D.fecha) || '—')}</b></div></div></div>
     <div style="padding:10px 16px"><table style="border-collapse:collapse;font-size:13px;width:100%">
-      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div></div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)')}
+      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc, p.ocFecha], ['HES', p.hes, p.hesFecha], ['HAS', p.has, p.hasFecha], ['WE', p.we, p.weFecha]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div>${x[1] && x[2] ? `<div style="font-size:10px;color:#666">${esc(fdate(x[2]))}</div>` : ''}</div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)')}
       ${row('Glosa', esc(D.glosa))}
       ${row('Tipo de cobro', esc((D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : '')))}
     </table></div>
@@ -2139,13 +2142,15 @@ async function docPDF(D) {
     // referencias del cliente: 4 casillas siempre visibles (N° OC, HES, HAS, WE)
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(95); doc.text('Referencias', LX, y); doc.text('del cliente', LX, y + 4);
     const cw = (VW - 3*3)/4; doc.setDrawColor(200); doc.setLineWidth(0.3);
-    [['N° OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].forEach((r, i) => { const cx = VX + i*(cw + 3);
-      doc.roundedRect(cx, y - 4, cw, 11, 1, 1, 'S');
+    const hayF = [p.ocFecha, p.hesFecha, p.hasFecha, p.weFecha].some(Boolean), bh = hayF ? 14 : 11;
+    [['N° OC', p.oc, p.ocFecha], ['HES', p.hes, p.hesFecha], ['HAS', p.has, p.hasFecha], ['WE', p.we, p.weFecha]].forEach((r, i) => { const cx = VX + i*(cw + 3);
+      doc.roundedRect(cx, y - 4, cw, bh, 1, 1, 'S');
+      if (r[1] && r[2]) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(110); doc.text(fdate(r[2]), cx + 2, y + 8.3); }
       doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(110); doc.text(r[0], cx + 2, y - 0.5);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(20);
       let v = pdfTxt(r[1] || '-'); while (v.length > 3 && doc.width(v) > cw - 4) v = v.slice(0, -2) + '…'.replace('…', '');
       doc.text(v, cx + 2, y + 4.8); });
-    y += 12; }
+    y += bh + 1; }
   else fila('Proyecto', '(sin proyecto)');
   fila('Glosa', D.glosa); fila('Tipo de cobro', (D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : ''));
   y += 2;
@@ -2251,7 +2256,7 @@ function wireDocProject(kind, rec) {
     const docOk = p.documento === (isF ? 'F' : 'B');
     box.innerHTML = `<div class="pi-h"><b class="code">${esc(p.codigo)}</b> ${esc(projName(p))}</div>
       <dl><dt>Cliente / mandante</dt><dd>${esc(p.mandante)}</dd>${rutDe(p.mandante) ? `<dt>RUT</dt><dd class="n">${esc(rutDe(p.mandante))}</dd>` : ''}<dt>Contacto</dt><dd>${esc(TITLE(p.contacto)||'—')}</dd>
-${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>`<dt>${x[0]}</dt><dd class="n">${esc(x[1])}</dd>`).join('')}${p.planta ? `<dt class="smi">Planta</dt><dd class="smi">${esc(p.planta)}</dd>` : ''}${p.carpetaRuta ? `<dt class="smi">Carpeta</dt><dd class="smi" style="word-break:break-all">📁 ${esc(p.carpetaRuta)}</dd>` : ''}<dt>Estado</dt><dd>${esc(p.estado)}</dd>
+${[['OC',p.oc,p.ocFecha],['HES',p.hes,p.hesFecha],['HAS',p.has,p.hasFecha],['WE',p.we,p.weFecha]].filter(x=>x[1]).map(x=>`<dt>${x[0]}</dt><dd class="n">${esc(x[1])}${x[2] ? `<span class="refd">${esc(fdate(x[2]))}</span>` : ''}</dd>`).join('')}${p.planta ? `<dt class="smi">Planta</dt><dd class="smi">${esc(p.planta)}</dd>` : ''}${p.carpetaRuta ? `<dt class="smi">Carpeta</dt><dd class="smi" style="word-break:break-all">📁 ${esc(p.carpetaRuta)}</dd>` : ''}<dt>Estado</dt><dd>${esc(p.estado)}</dd>
       <dt>Monto proyecto</dt><dd class="n">${uf(p.montoUF)} UF · ${clp(m.totalCLP)}</dd>
       <dt>Ya documentado</dt><dd class="n">${uf(facOtros)} UF</dd>
       <dt>Saldo por facturar</dt><dd class="n"><b>${uf(sal)} UF</b> <button type="button" class="btn ghost mini" id="bSaldo">Usar saldo</button></dd></dl>
@@ -2363,7 +2368,7 @@ async function save(kind, rec) {
       }
       if (!nuevoCli) { const rv = rutFmt((val('rut')||'').trim()), cc = S.clientes.find(c => c.nombre === mandante);
         if (cc && rv !== (cc.rut||'')) { const {id: cid, ...crest} = cc; try { await put('clientes', cid, {...crest, rut: rv}); } catch (e) { toast('No se pudo guardar el RUT'); } } }
-      const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), planta: UP((val('planta')||'').trim()), carpetaRuta: (val('carpetaRuta')||'').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: val('documento'),
+      const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), ocFecha: val('ocFecha') || '', hesFecha: val('hesFecha') || '', hasFecha: val('hasFecha') || '', weFecha: val('weFecha') || '', planta: UP((val('planta')||'').trim()), carpetaRuta: (val('carpetaRuta')||'').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: val('documento'),
         montoUF: m, valorUF: v, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
       if (S.proyectos.some(p => projName(p) === base.proyecto && (!rec || p.id !== rec.id))) return err.textContent = 'Ya existe un proyecto con ese nombre.';
       base.creado = val('creado') || (rec ? rec.creado || '' : today());
@@ -2481,7 +2486,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261002-1600. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261007-2045. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
