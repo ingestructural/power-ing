@@ -1322,11 +1322,16 @@ function resumenEstados() {
    La letra de la fila pasa a blanca u oscura según el color de fondo. «Facturado» toma un color distinto según el documento:
    Facturado (factura) o Boleta emitida (boleta). */
 const EST_COLOR = {
-  'Adjudicado': {c: '#00B0F0', k: 'ea'}, 'Facturado': {c: '#0070C0', k: 'ef'}, 'Boleta emitida': {c: '#A21CAF', k: 'eb'},
+  'Adjudicado': {c: '#00B0F0', k: 'ea'}, 'Facturado': {c: '#0070C0', k: 'ef'}, 'Boleta emitida': {c: '#00B050', k: 'eb'},
   'Pagado': {c: '#15803D', k: 'ep'}, 'En oferta': {c: '#FDE9D9', k: 'eo'}, 'Solicitar ODC': {c: '#A6A6A6', k: 'ec'},
   'En ejecución': {c: '#FFFF00', k: 'ee'}, 'Entregado': {c: '#0D9488', k: 'en'}, 'Solicitar HES/WE/HAS': {c: '#A6A6A6', k: 'eh'},
   'Facturar': {c: '#DC2626', k: 'er'}, 'Terminado': {c: '#FFFFFF', k: 'et'}, 'Suspendido': {c: '#948A54', k: 'es'},
   'Cancelado': {c: '#FFC000', k: 'ex'}, 'No adjudicado': {c: '#002060', k: 'ez'} };
+// Intensidad: cada color se aclara mezclándolo con blanco en esta proporción (0 = color puro). Germán pidió bajar un poco la intensidad.
+const EST_SUAVE = 0.22;
+function estSuave(hex) { const n = parseInt(hex.slice(1), 16), m = v => Math.round(v + (255 - v) * EST_SUAVE);
+  return '#' + [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => m(v).toString(16).padStart(2, '0')).join('').toUpperCase(); }
+Object.values(EST_COLOR).forEach(o => { o.base = o.c; o.c = estSuave(o.c); });
 function estColor(e, doc) { return EST_COLOR[e === 'Facturado' && doc === 'B' ? 'Boleta emitida' : e] || null; }
 function estTinta(hex) { const n = parseInt(hex.slice(1), 16), L = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
   const Y = 0.2126 * L(n >> 16 & 255) + 0.7152 * L(n >> 8 & 255) + 0.0722 * L(n & 255); return (1.05 / (Y + 0.05)) >= ((Y + 0.05) / 0.05) ? '#ffffff' : '#111111'; }
@@ -2515,7 +2520,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261008-1900. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261008-1915. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
