@@ -1328,7 +1328,7 @@ const EST_COLOR = {
   'Facturar': {c: '#DC2626', k: 'er'}, 'Terminado': {c: '#FFFFFF', k: 'et'}, 'Suspendido': {c: '#948A54', k: 'es'},
   'Cancelado': {c: '#FFC000', k: 'ex'}, 'No adjudicado': {c: '#002060', k: 'ez'} };
 // Intensidad: cada color se aclara mezclándolo con blanco en esta proporción (0 = color puro). Germán pidió bajar un poco la intensidad.
-const EST_SUAVE = 0.22;
+const EST_SUAVE = 0.40;
 function estSuave(hex) { const n = parseInt(hex.slice(1), 16), m = v => Math.round(v + (255 - v) * EST_SUAVE);
   return '#' + [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => m(v).toString(16).padStart(2, '0')).join('').toUpperCase(); }
 Object.values(EST_COLOR).forEach(o => { o.base = o.c; o.c = estSuave(o.c); });
@@ -2520,7 +2520,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261008-1915. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261008-1930. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
