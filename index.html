@@ -1318,24 +1318,32 @@ function resumenEstados() {
   if (!items.length) return '';
   return `<div class="resumen-est"><span class="rs-tit">Por estado:</span>${items.join('')}${S.fEstado ? `<button type="button" class="rs-chip rs-clear" data-festado="">✕ quitar filtro</button>` : ''}</div>`;
 }
-/* Color de cada estado del proyecto (pastilla y fondo de la fila o tarjeta). f = fuerte: fondo más intenso y pastilla de color pleno.
-   «Facturado» toma un color distinto según el documento: Facturado (factura) o Boleta emitida (boleta). */
+/* Color de cada estado del proyecto: fondo de la fila de la tabla y de la tarjeta (colores elegidos por Germán, 08-10-2026).
+   La letra de la fila pasa a blanca u oscura según el color de fondo. «Facturado» toma un color distinto según el documento:
+   Facturado (factura) o Boleta emitida (boleta). */
 const EST_COLOR = {
-  'En oferta': {c: '#8b5cf6', k: 'eo'}, 'Adjudicado': {c: '#d97706', k: 'ea', f: 1}, 'Solicitar ODC': {c: '#6366f1', k: 'ec'},
-  'En ejecución': {c: '#0891b2', k: 'ee'}, 'Entregado': {c: '#0d9488', k: 'en'}, 'Solicitar HES/WE/HAS': {c: '#db2777', k: 'eh'},
-  'Facturar': {c: '#dc2626', k: 'er'}, 'Facturado': {c: '#0060c1', k: 'ef', f: 1}, 'Boleta emitida': {c: '#a21caf', k: 'eb', f: 1},
-  'Pagado': {c: '#15803d', k: 'ep', f: 1}, 'Terminado': {c: '#57534e', k: 'et'}, 'Suspendido': {c: '#ea580c', k: 'es'},
-  'Cancelado': {c: '#b91c1c', k: 'ex'}, 'No adjudicado': {c: '#9ca3af', k: 'ez'} };
+  'Adjudicado': {c: '#00B0F0', k: 'ea'}, 'Facturado': {c: '#0070C0', k: 'ef'}, 'Boleta emitida': {c: '#A21CAF', k: 'eb'},
+  'Pagado': {c: '#15803D', k: 'ep'}, 'En oferta': {c: '#FDE9D9', k: 'eo'}, 'Solicitar ODC': {c: '#A6A6A6', k: 'ec'},
+  'En ejecución': {c: '#FFFF00', k: 'ee'}, 'Entregado': {c: '#0D9488', k: 'en'}, 'Solicitar HES/WE/HAS': {c: '#A6A6A6', k: 'eh'},
+  'Facturar': {c: '#DC2626', k: 'er'}, 'Terminado': {c: '#FFFFFF', k: 'et'}, 'Suspendido': {c: '#948A54', k: 'es'},
+  'Cancelado': {c: '#FFC000', k: 'ex'}, 'No adjudicado': {c: '#002060', k: 'ez'} };
 function estColor(e, doc) { return EST_COLOR[e === 'Facturado' && doc === 'B' ? 'Boleta emitida' : e] || null; }
+function estTinta(hex) { const n = parseInt(hex.slice(1), 16), L = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const Y = 0.2126 * L(n >> 16 & 255) + 0.7152 * L(n >> 8 & 255) + 0.0722 * L(n & 255); return (1.05 / (Y + 0.05)) >= ((Y + 0.05) / 0.05) ? '#ffffff' : '#111111'; }
 (function () {
   let css = '';
-  Object.values(EST_COLOR).forEach(({c, k, f}) => {
-    const t = f ? 30 : 12, h = f ? 40 : 20;
-    css += `tr.st-${k} td{background:color-mix(in srgb,${c} ${t}%,var(--panel,#fff))!important} tr.st-${k}:hover td{background:color-mix(in srgb,${c} ${h}%,var(--panel,#fff))!important} tr.st-${k} td:first-child{box-shadow:inset ${f ? 6 : 4}px 0 0 ${c}}`;
-    css += `.pcard.st-${k}{background:color-mix(in srgb,${c} ${f ? 26 : 10}%,var(--panel,#fff))!important;border-left:${f ? 7 : 5}px solid ${c}!important}`;
-    css += f ? `.pill.st-${k}{background:${c}!important;color:#fff!important;font-weight:700;border:0!important}` : `.pill.st-${k}{background:color-mix(in srgb,${c} 18%,var(--panel,#fff))!important;color:color-mix(in srgb,${c} 80%,var(--ink,#111))!important;border:1px solid color-mix(in srgb,${c} 55%,transparent)!important}`;
+  Object.values(EST_COLOR).forEach(({c, k}) => {
+    const t = estTinta(c), osc = t === '#ffffff', borde = c === '#FFFFFF' ? '#BFBFBF' : c;
+    // fila de la tabla (todas las celdas, incluidas las columnas de montos que tienen color propio)
+    css += `table tbody tr.st-${k} td{background:${c}!important;color:${t}!important} table tbody tr.st-${k}:hover td{background:color-mix(in srgb,${c} 88%,${osc ? '#ffffff' : '#000000'})!important}`;
+    css += `table tbody tr.st-${k} td *:not(.pill):not(.cobrar):not(.cobrar *):not(.pbar):not(.pbar *){color:inherit!important} table tbody tr.st-${k} td:first-child{box-shadow:inset 5px 0 0 ${borde}}`;
+    css += `table tbody tr.st-${k} .pbar{background:${osc ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.18)'}} table tbody tr.st-${k} .pbar i{background:${t}}`;
+    // tarjeta del celular
+    css += `.pcard.st-${k}{background:${c}!important;color:${t}!important;border-left:6px solid ${borde}!important} .pcard.st-${k} *:not(.pill):not(.cobrar):not(.cobrar *){color:inherit!important}`;
+    // pastilla: color pleno en el resumen; dentro de la fila (mismo fondo) se invierte para que se distinga
+    css += `.pill.st-${k}{background:${c}!important;color:${t}!important;font-weight:700;border:1px solid ${c === '#FFFFFF' ? '#9CA3AF' : 'rgba(0,0,0,.15)'}!important}`;
+    css += `table tbody tr.st-${k} .pill.st-${k},.pcard.st-${k} .pill.st-${k}{background:${osc ? '#ffffff' : '#111111'}!important;color:${osc ? c : (c === '#FFFFFF' ? '#ffffff' : c)}!important;border:1px solid ${t}!important}`;
   });
-  css += `.leyenda-est{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}`;
   const st = document.createElement('style'); st.id = 'estColores'; st.textContent = css; document.head.appendChild(st);
 })();
 const estCls = (e, doc) => { const x = estColor(e, doc); return x ? 'st-' + x.k : ''; };
@@ -1486,7 +1494,7 @@ function vProyectos() {
       <td class="n c-fac ${m.facturadoUF>0.005?'on':''}">${uf(m.facturadoUF)}</td><td class="n c-pf ${m.porFacturar>0.005?'on':''}" style="${m.porFacturar<-0.005?'color:var(--bad)':''}">${uf(m.porFacturar)}</td><td class="n c-pct">${m.pctF==null?'—':`${pct(m.pctF)}<span class="pbar"><i style="width:${Math.max(0,Math.min(100,m.pctF*100))}%"></i></span>`}</td>
       <td class="n c-pag ${m.pagado>0?'on':''}">${clp(m.pagado)}</td><td class="n c-pp ${m.porPagar>0?'on':''}">${clp(m.porPagar)}</td></tr>`; }).join('')}</tbody></table></div>`
   : `<div class="empty">${S.proyectos.length ? 'Ningún proyecto coincide con el filtro.' : 'Aún no hay proyectos. Use “+ Nuevo proyecto” para registrar el primero; el código se asigna solo.'}</div>`}
-  <p class="note">Colores: <span style="color:#c2410c;font-weight:700">por facturar</span> · <span style="color:#6d28d9;font-weight:700">% facturado</span> · <span style="color:#15803d;font-weight:700">pagado</span> · <span style="color:#b91c1c;font-weight:700">por pagar</span> — cada estado tiene su color, que se aplica al fondo del proyecto (más intenso en Adjudicado, Facturado, Boleta emitida y Pagado): ${ESTADOS_PROY.flatMap(e => e === 'Facturar' ? [['Facturar','F'],['Facturar','B']] : e === 'Facturado' ? [['Facturado','F'],['Facturado','B']] : [[e,'']]).map(([e, d]) => pillProy(e, d)).join(' ')}</p>
+  <p class="note">Colores: <span style="color:#c2410c;font-weight:700">por facturar</span> · <span style="color:#6d28d9;font-weight:700">% facturado</span> · <span style="color:#15803d;font-weight:700">pagado</span> · <span style="color:#b91c1c;font-weight:700">por pagar</span> — cada estado tiene su color, que se aplica al fondo de la fila del proyecto: ${ESTADOS_PROY.flatMap(e => e === 'Facturar' ? [['Facturar','F'],['Facturar','B']] : e === 'Facturado' ? [['Facturado','F'],['Facturado','B']] : [[e,'']]).map(([e, d]) => pillProy(e, d)).join(' ')}</p>
   <p class="note">📋 SOLICITAR ODC: pedir al cliente la orden de compra · 📄 FACTURAR / EMITIR BOLETA: proyecto entregado con saldo por documentar (clic en el aviso para emitir) · 📋 SOLICITAR HES/WE/HAS: pedir las referencias del cliente antes de facturar (indica cuáles faltan) · 💲 COBRAR: proyecto facturado con pagos pendientes. Al marcarlo «Pagado» deja de cobrarse. Fecha de entrega en rojo: atrasada.</p>
   <p class="note">Código: SIGLA del mandante – correlativo del mandante – correlativo general del año – año (2 dígitos). Se asigna al crear el proyecto; se reasigna si cambia el mandante o el año, o si el proyecto se mueve a otro archivo (queda registrado el código anterior). Un proyecto cancelado conserva su código, su saldo por facturar pasa a cero y lo ya facturado o cobrado se mantiene.</p>`;
 }
@@ -2507,7 +2515,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261008-1840. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261008-1900. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
