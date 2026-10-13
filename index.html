@@ -640,7 +640,7 @@ td.prop{color:var(--ok);font-weight:700}
 }
 
 /* ---- colores por estado: etapa del proyecto y columnas facturado / por facturar / pagado / por pagar ---- */
-.pill.e-ofe{background:#ede9fe;color:#6d28d9} .pill.e-adj{background:#e0e7ff;color:#3730a3} .pill.e-eje{background:#cffafe;color:#0e7490}
+.pill.e-ofe{background:#fde5d6;color:#b45309;border:1px solid #E97132} .pill.e-adj{background:#e0e7ff;color:#3730a3} .pill.e-eje{background:#cffafe;color:#0e7490}
 .pill.e-ent{background:#ccfbf1;color:#0f766e;border:1px solid #14b8a6} .pill.e-fac{background:#0060c1;color:#fff} .pill.e-pag{background:#15803d;color:#fff}
 .pill.e-ter{background:#334155;color:#fff} .pill.e-sus{background:#fef3c7;color:#b45309} .pill.e-can{background:#fee2e2;color:#b91c1c} .pill.e-noa{background:#e5e7eb;color:#6b7280}
 .pill.e-psf{background:#fff7ed;color:#c2410c;border:1px dashed #ea580c} .pill.e-pen{background:#ffedd5;color:#c2410c;border:1px solid #fb923c} .pill.e-par{background:#fef9c3;color:#a16207;border:1px solid #eab308}
@@ -692,11 +692,11 @@ tr.row-factu td{background:color-mix(in srgb,#dc2626 9%,transparent)!important}
 .pcard.pc-factu{border:2px solid #dc2626;border-left:6px solid #dc2626;background:color-mix(in srgb,#dc2626 7%,var(--panel))}
 .cobrar.odc{background:#eef2ff;color:#3730a3;border-color:#6366f1}
 .alerta.odc{background:color-mix(in srgb,#6366f1 11%,var(--panel));border-left:5px solid #6366f1}
-.pill.e-hes{background:#fce7f3;color:#be185d;border:1px solid #ec4899}
-.cobrar.hes{color:#be185d;background:#fce7f3;border-color:#ec4899}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cobrar.hes{background:#3d1530;color:#f9a8d4}}
-:root[data-theme="dark"] .cobrar.hes{background:#3d1530;color:#f9a8d4}
-.alerta.hes{background:color-mix(in srgb,#ec4899 11%,var(--panel));border-left:5px solid #ec4899}
+.pill.e-hes{background:#fae8ff;color:#a21caf;border:1px solid #d946ef}
+.cobrar.hes{color:#a21caf;background:#fae8ff;border-color:#d946ef}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cobrar.hes{background:#3d1245;color:#f0abfc}}
+:root[data-theme="dark"] .cobrar.hes{background:#3d1245;color:#f0abfc}
+.alerta.hes{background:color-mix(in srgb,#d946ef 11%,var(--panel));border-left:5px solid #d946ef}
 
 /* ---- vista para celular (≤ 760 px): tarjetas, cinta de montos deslizable, pestañas deslizables ---- */
 .pcards{display:none}
@@ -1323,8 +1323,8 @@ function resumenEstados() {
    Facturado (factura) o Boleta emitida (boleta). */
 const EST_COLOR = {
   'Adjudicado': {c: '#00B0F0', k: 'ea'}, 'Facturado': {c: '#0070C0', k: 'ef'}, 'Boleta emitida': {c: '#00B050', k: 'eb'},
-  'Pagado': {c: '#15803D', k: 'ep'}, 'En oferta': {c: '#FDE9D9', k: 'eo'}, 'Solicitar ODC': {c: '#A6A6A6', k: 'ec'},
-  'En ejecución': {c: '#FFFF00', k: 'ee', s: 0.65}, 'Entregado': {c: '#0D9488', k: 'en'}, 'Solicitar HES/WE/HAS': {c: '#A6A6A6', k: 'eh'},
+  'Pagado': {c: '#15803D', k: 'ep'}, 'En oferta': {c: '#E97132', k: 'eo'}, 'Solicitar ODC': {c: '#A6A6A6', k: 'ec'},
+  'En ejecución': {c: '#FFFF00', k: 'ee', s: 0.15}, 'Entregado': {c: '#0D9488', k: 'en'}, 'Solicitar HES/WE/HAS': {c: '#FF00FF', k: 'eh'},
   'Facturar': {c: '#DC2626', k: 'er'}, 'Terminado': {c: '#FFFFFF', k: 'et'}, 'Suspendido': {c: '#948A54', k: 'es'},
   'Cancelado': {c: '#FFC000', k: 'ex'}, 'No adjudicado': {c: '#002060', k: 'ez'} };
 // Intensidad: cada color se aclara mezclándolo con blanco en esta proporción (0 = color puro). Germán pidió bajar un poco la intensidad.
