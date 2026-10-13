@@ -642,7 +642,7 @@ td.prop{color:var(--ok);font-weight:700}
 /* ---- colores por estado: etapa del proyecto y columnas facturado / por facturar / pagado / por pagar ---- */
 .pill.e-ofe{background:#fde5d6;color:#b45309;border:1px solid #E97132} .pill.e-adj{background:#e0e7ff;color:#3730a3} .pill.e-eje{background:#cffafe;color:#0e7490}
 .pill.e-ent{background:#ccfbf1;color:#0f766e;border:1px solid #14b8a6} .pill.e-fac{background:#0060c1;color:#fff} .pill.e-pag{background:#15803d;color:#fff}
-.pill.e-ter{background:#334155;color:#fff} .pill.e-sus{background:#fef3c7;color:#b45309} .pill.e-can{background:#fee2e2;color:#b91c1c} .pill.e-noa{background:#e5e7eb;color:#6b7280}
+.pill.e-ter{background:#334155;color:#fff} .pill.e-sus{background:#e5e7eb;color:#4b5563;border:1px solid #A6A6A6} .pill.e-can{background:#fee2e2;color:#b91c1c} .pill.e-noa{background:#e5e7eb;color:#6b7280}
 .pill.e-psf{background:#fff7ed;color:#c2410c;border:1px dashed #ea580c} .pill.e-pen{background:#ffedd5;color:#c2410c;border:1px solid #fb923c} .pill.e-par{background:#fef9c3;color:#a16207;border:1px solid #eab308}
 th.h-pct,td.c-pct{min-width:68px;white-space:nowrap} th.h-fac{background:#0060c1!important} th.h-pf{background:#c2410c!important} th.h-pct{background:#6d28d9!important} th.h-pag{background:#15803d!important} th.h-pp{background:#b91c1c!important}
 td.c-fac{background:color-mix(in srgb,#0060c1 6%,transparent)!important} td.c-fac.on{color:#0060c1;font-weight:700}
@@ -654,7 +654,7 @@ td.c-pp{background:color-mix(in srgb,#dc2626 6%,transparent)!important} td.c-pp.
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) td.c-fac.on{color:#7fb2f0} :root:not([data-theme="light"]) td.c-pf.on{color:#fb923c} :root:not([data-theme="light"]) td.c-pag.on{color:#4ade80} :root:not([data-theme="light"]) td.c-pp.on{color:#f87171} :root:not([data-theme="light"]) td.c-pct{color:#c4a5ff}}
 :root[data-theme="dark"] td.c-fac.on{color:#7fb2f0} :root[data-theme="dark"] td.c-pf.on{color:#fb923c} :root[data-theme="dark"] td.c-pag.on{color:#4ade80} :root[data-theme="dark"] td.c-pp.on{color:#f87171} :root[data-theme="dark"] td.c-pct{color:#c4a5ff}
 
-.pill.e-odc{background:#e0e7ff;color:#3730a3;border:1px solid #6366f1}
+.pill.e-odc{background:#fae8ff;color:#a21caf;border:1px solid #d946ef}
 #visorBtn.vis-on{background:#dc2626 !important;color:#fff !important;border-color:#b91c1c !important;font-weight:700}
 #visorBtn.vis-off{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
 #visorBar{background:#dc2626;color:#fff;font-weight:700;text-align:center;padding:4px 8px;font-size:12px;letter-spacing:.04em;border-radius:4px;margin-bottom:6px}
@@ -836,7 +836,10 @@ const num = v => { const x = parseFloat(String(v).replace(/\./g, '').replace(','
 const numIn = v => { if (v === '' || v == null) return null; const s = String(v).trim(); const x = /,/.test(s) ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : parseFloat(s); return isNaN(x) ? null : x; };
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const ESTADOS_DOC = ['Pendiente','Pagada','Pago parcial','Vencida','Anulada'];
-const ESTADOS_PROY = ['En oferta','Adjudicado','Solicitar ODC','En ejecución','Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Terminado','Suspendido','Cancelado','No adjudicado'];
+const ESTADOS_PROY = ['En oferta','Solicitar ODC','En ejecución','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Suspendido / Terminado','No adjudicado','Cancelado'];
+const EST_ST = 'Suspendido / Terminado';
+// Estados antiguos (ya eliminados) → estado actual. Se aplica en memoria al abrir; en la nube se actualiza al guardar cada proyecto.
+function estActual(e, oc) { if (e === 'Adjudicado') return oc ? 'En ejecución' : 'Solicitar ODC'; if (e === 'Entregado') return 'Solicitar HES/WE/HAS'; if (e === 'Terminado' || e === 'Suspendido') return EST_ST; return e; }
 const MOTIVOS = ['Detenido por el mandante','No se ejecutó','Detenido por ING Estructural','Otro (ver observaciones)'];
 const DEF_PARAMS = { iva: 0.19, ufRef: 41040.82, uta: 834504, gp: 0.30, gpTope: 15, semRojo: 3, semAmarillo: 10,
   rates: {2024: 0.1375, 2025: 0.145, 2026: 0.1525, 2027: 0.16, 2028: 0.17},
@@ -1323,11 +1326,10 @@ function resumenEstados() {
    La letra de la fila pasa a blanca u oscura según el color de fondo. «Facturado» toma un color distinto según el documento:
    Facturado (factura) o Boleta emitida (boleta). */
 const EST_COLOR = {
-  'Adjudicado': {c: '#00B0F0', k: 'ea'}, 'Facturado': {c: '#0070C0', k: 'ef'}, 'Boleta emitida': {c: '#00B050', k: 'eb'},
-  'Pagado': {c: '#15803D', k: 'ep'}, 'En oferta': {c: '#E97132', k: 'eo'}, 'Solicitar ODC': {c: '#A6A6A6', k: 'ec'},
-  'En ejecución': {c: '#EBEB3C', k: 'ee', s: 0}, 'Entregado': {c: '#0D9488', k: 'en'}, 'Solicitar HES/WE/HAS': {c: '#E57AE5', k: 'eh', s: 0},
-  'Facturar': {c: '#DC2626', k: 'er'}, 'Terminado': {c: '#FFFFFF', k: 'et'}, 'Suspendido': {c: '#948A54', k: 'es'},
-  'Cancelado': {c: '#FFC000', k: 'ex'}, 'No adjudicado': {c: '#002060', k: 'ez'} };
+  'En oferta': {c: '#E97132', k: 'eo', s: 0}, 'Solicitar ODC': {c: '#E57AE5', k: 'ec', s: 0}, 'En ejecución': {c: '#EBEB3C', k: 'ee', s: 0},
+  'Solicitar HES/WE/HAS': {c: '#E57AE5', k: 'eh', s: 0}, 'Facturar': {c: '#E5484D', k: 'er', s: 0}, 'Facturado': {c: '#2F6FDB', k: 'ef', s: 0},
+  'Boleta emitida': {c: '#2BB5A0', k: 'eb', s: 0}, 'Pagado': {c: '#15803D', k: 'ep', s: 0}, 'Suspendido / Terminado': {c: '#A6A6A6', k: 'et', s: 0},
+  'No adjudicado': {c: '#D9D9D9', k: 'ez', s: 0}, 'Cancelado': {c: '#6B6B6B', k: 'ex', s: 0} };
 // Intensidad: cada color se aclara mezclándolo con blanco en esta proporción (0 = color puro). Germán pidió bajar un poco la intensidad.
 const EST_SUAVE = 0.40;
 function estSuave(hex, f) { const k = f == null ? EST_SUAVE : f, n = parseInt(hex.slice(1), 16), m = v => Math.round(v + (255 - v) * k);
@@ -1353,7 +1355,7 @@ function estTinta(hex) { const n = parseInt(hex.slice(1), 16), L = c => { c /= 2
   const st = document.createElement('style'); st.id = 'estColores'; st.textContent = css; document.head.appendChild(st);
 })();
 const estCls = (e, doc) => { const x = estColor(e, doc); return x ? 'st-' + x.k : ''; };
-function pillProy(e, doc) { const m = {'En oferta':'e-ofe','Adjudicado':'e-adj','Solicitar ODC':'e-odc','En ejecución':'e-eje','Entregado':'e-ent','Solicitar HES/WE/HAS':'e-hes','Facturar':'e-factu','Facturado':'e-fac','Pagado':'e-pag','Terminado':'e-ter','Suspendido':'e-sus','Cancelado':'e-can','No adjudicado':'e-noa'}; return `<span class="pill ${m[e]||'p-grey'} ${e === 'Facturar' ? '' : estCls(e, doc)}">${esc(estadoTxt(e, doc)||'—')}</span>`; }
+function pillProy(e, doc) { const m = {'En oferta':'e-ofe','Adjudicado':'e-adj','Solicitar ODC':'e-odc','En ejecución':'e-eje','Entregado':'e-ent','Solicitar HES/WE/HAS':'e-hes','Facturar':'e-factu','Facturado':'e-fac','Pagado':'e-pag','Terminado':'e-ter','Suspendido':'e-sus','Suspendido / Terminado':'e-sus','Cancelado':'e-can','No adjudicado':'e-noa'}; return `<span class="pill ${m[e]||'p-grey'} ${e === 'Facturar' ? '' : estCls(e, doc)}">${esc(estadoTxt(e, doc)||'—')}</span>`; }
 function igc(base) {
   const U = P().uta; const b = base / U; const t = P().igc; let row = t[0];
   for (const r of t) if (b >= r[0]) row = r;
@@ -1362,6 +1364,7 @@ function igc(base) {
 
 /* ------------------------------------------------------------------ render general */
 function render() {
+  S.proyectos.forEach(p => { const n = estActual(p.estado, p.oc); if (n !== p.estado) p.estado = n; });
   visorUI();
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === S.tab ? 'true' : 'false'));
   renderKpis();
@@ -1377,12 +1380,12 @@ function render() {
 }
 function renderKpis() {
   const y = new Date().getFullYear();
-  const activos = S.proyectos.filter(p => !['Cancelado','Terminado','No adjudicado','Pagado'].includes(p.estado)).length;
+  const activos = S.proyectos.filter(p => !['Cancelado',EST_ST,'No adjudicado','Pagado'].includes(p.estado)).length;
   const fy = S.facturas.filter(f => f.estado !== 'Anulada' && (f.fecha||'').startsWith(String(y)));
   const by = S.boletas.filter(b => b.estado !== 'Anulada' && (b.fecha||'').startsWith(String(y)));
   const fCob = S.facturas.filter(f => !['Anulada','Pagada'].includes(f.estado)).reduce((s, f) => s + calcFactura(f).total, 0);
   const bCob = S.boletas.filter(b => !['Anulada','Pagada'].includes(b.estado)).reduce((s, b) => s + calcBoleta(b).liq, 0);
-  const ADJ = ['Adjudicado','Solicitar ODC','En ejecución','Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Terminado','Suspendido'];
+  const ADJ = ['Solicitar ODC','En ejecución','Solicitar HES/WE/HAS','Facturar','Facturado',EST_ST];
   let ingF = 0, ingB = 0, nF = 0, nB = 0, ufIng = 0, propioIng = 0;
   S.proyectos.filter(p => ADJ.includes(p.estado)).forEach(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const falta = Math.max(m.totalCLP - m.pagado, 0);
     if (falta <= 0) return; ufIng += falta / v; if (p.documento === 'B') { ingB += falta; nB++; } else { ingF += falta; nF++; }
@@ -1406,9 +1409,9 @@ function renderKpis() {
 const projName = p => UP([p.proyecto, p.descripcion].filter(Boolean).join(' – '));
 const diasA = f => { if (!f) return null; const a = new Date(f + 'T00:00:00'), b = new Date(today() + 'T00:00:00'); return Math.round((a - b) / 86400000); };
 function semaforo(p) {
-  if (['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Terminado'].includes(p.estado)) return {c: 'ok', t: 'entregado'};
+  if (['Solicitar HES/WE/HAS','Facturar','Facturado'].includes(p.estado)) return {c: 'ok', t: 'entregado'};
   if (['Cancelado','No adjudicado'].includes(p.estado)) return null;
-  if (p.estado === 'Suspendido') return {c: 'gr', t: 'suspendido'};
+  if (p.estado === EST_ST) return {c: 'gr', t: 'suspendido / terminado'};
   const d = diasA(p.entrega); if (d === null) return {c: 'gr', t: 'sin fecha'};
   const R = +P().semRojo || 3, A = +P().semAmarillo || 10;
   const t = d < 0 ? `atrasado ${-d} d` : d === 0 ? 'entrega hoy' : `faltan ${d} d`;
@@ -1421,12 +1424,12 @@ function pagarTerc(p, m) {   // el cliente ya pagó (total o parcial) o el proye
   return (m.pagado > 0 || p.estado === 'Pagado') ? m.tercPendList : null;
 }
 function cobroPend(p, m) {   // Entregado → FACTURAR · Solicitar HES/WE/HAS → SOLICITAR · Facturado → COBRAR · Terminado → lo que quede pendiente · Pagado → nada
-  if (!['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Terminado'].includes(p.estado)) return null;
+  if (!['Solicitar HES/WE/HAS','Facturar','Facturado',EST_ST].includes(p.estado)) return null;
   const fact = Math.max(m.porFacturar, 0), pag = Math.max(m.porPagar, 0);
   if (p.estado === 'Solicitar HES/WE/HAS') { const falta = [['HES', p.hes], ['WE', p.we], ['HAS', p.has]].filter(x => !x[1]).map(x => x[0]);
     return {tipo: 'hes', fact, pag: 0, t: falta.length ? 'falta ' + falta.join(' · ') : 'referencias recibidas: facturar'}; }
   // COBRAR solo en estado Facturado / Boleta emitida
-  if (p.estado === 'Entregado' || p.estado === 'Facturar') return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : (pag > 0.5 ? null : {tipo: 'fact', fact: 0, pag: 0, t: p.documento === 'B' ? 'emitir boleta' : 'emitir factura'});
+  if (p.estado === 'Facturar') return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : (pag > 0.5 ? null : {tipo: 'fact', fact: 0, pag: 0, t: p.documento === 'B' ? 'emitir boleta' : 'emitir factura'});
   if (p.estado === 'Facturado') return {tipo: 'cob', fact: 0, pag, t: pag > 0.5 ? clp(pag) + ' por cobrar' : 'confirmar pago y marcar «Pagado»'};
   return fact > 0.005 ? {tipo: 'fact', fact, pag: 0, t: uf(fact) + ' UF por facturar'} : null;
 }
@@ -1490,7 +1493,7 @@ function vProyectos() {
   ${resumenEstados()}
   ${rows.length ? `<div class="pcards">${rows.map(cardProy).join('')}</div><div class="tbl wide"><table>
     <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto&nbsp;(UF)','n cen',SUB_CI)}${sortTh('montoCLP','Monto&nbsp;($)','n',SUB_CI)}${sortTh('propio','Propio&nbsp;(UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado&nbsp;(UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar&nbsp;(UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
-    <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Terminado','Suspendido','Cancelado','No adjudicado'].includes(p.estado);
+    <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Solicitar HES/WE/HAS','Facturar','Facturado','Pagado',EST_ST,'Cancelado','No adjudicado'].includes(p.estado);
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''} ${estCls(p.estado, p.documento)}" data-edit="proyectos" data-id="${p.id}">
       <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
       <td class="keep">${p.documento==='F'?'<span class="pill p-i">Factura</span>':'<span class="pill p-g">Boleta</span>'}</td>
@@ -1513,7 +1516,7 @@ function avisosProy(p, m) {
   return h;
 }
 function cardProy(p) {
-  const m = proyMetrics(p), late = p.entrega && p.entrega < today() && !['Entregado','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Terminado','Suspendido','Cancelado','No adjudicado'].includes(p.estado);
+  const m = proyMetrics(p), late = p.entrega && p.entrega < today() && !['Solicitar HES/WE/HAS','Facturar','Facturado','Pagado',EST_ST,'Cancelado','No adjudicado'].includes(p.estado);
   const refs = [['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x => x[1]).map(x => x[0] + ' ' + esc(x[1])).join(' · ');
   return `<div class="pcard click ${p.estado==='Cancelado'?'cancel':''} ${p.documento==='F'?'f':'b'} ${p.estado==='Facturar'?'pc-factu':''} ${estCls(p.estado, p.documento)}" data-edit="proyectos" data-id="${p.id}">
     <div class="pc-top"><span class="code" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}</span>${pillProy(p.estado, p.documento)}</div>
@@ -1718,7 +1721,7 @@ function bjCambios(it, p) {   // lo que se modificaría en el proyecto
   const ch = [];
   ['oc', 'hes', 'has', 'we'].forEach(k => { if (it[k] && String(it[k]).trim() !== String(p[k] || '').trim()) ch.push([k, k.toUpperCase(), p[k] || '—', String(it[k]).trim()]);
     const kf = k + 'Fecha'; if (it[kf] && /^\d{4}-\d{2}-\d{2}$/.test(it[kf]) && it[kf] !== (p[kf] || '')) ch.push([kf, 'Fecha ' + k.toUpperCase(), fdate(p[kf]) || '—', it[kf]]); });
-  if (it.estado && ESTADOS_PROY.includes(it.estado) && it.estado !== p.estado) ch.push(['estado', 'Estado', estadoTxt(p.estado, p.documento), estadoTxt(it.estado, p.documento)]);
+  if (it.estado && ESTADOS_PROY.includes(estActual(it.estado, it.oc)) && estActual(it.estado, it.oc) !== p.estado) ch.push(['estado', 'Estado', estadoTxt(p.estado, p.documento), estadoTxt(estActual(it.estado, it.oc), p.documento)]);
   if (it.glosa && it.glosa !== (p.glosaFact || '')) ch.push(['glosaFact', 'Glosa para la factura/boleta', p.glosaFact || '—', it.glosa]);
   if (it.contacto && !p.contacto) ch.push(['contacto', 'Contacto', '—', TITLE(it.contacto)]);
   return ch;
@@ -1797,7 +1800,7 @@ function bindBandeja(pane) {
         const pid = it._pid || (bjProyectos(it)[0] || {}).p?.id; const p = S.proyectos.find(x => x.id === pid); if (!p) return toast('Elija el proyecto');
         const ch = bjCambios(it, p); if (!ch.length) return toast('No hay cambios');
         const {id, ...old} = p; const upd = {...old};
-        ch.forEach(c => { upd[c[0]] = c[3]; });
+        ch.forEach(c => { upd[c[0]] = c[0] === 'estado' ? estActual(it.estado, it.oc) : c[3]; });
         upd.obs = ((old.obs || '').trim() + `\n[${fdate(it.recibido || today())}] Correo: ${it.asunto || ''}`).trim();
         await put('proyectos', p.id, upd);
         if (it.rut) { const c = S.clientes.find(x => x.nombre === p.mandante); if (c && !c.rut) { const {id: cid, ...cr} = c; await put('clientes', cid, {...cr, rut: rutFmt(it.rut)}); } }
@@ -1807,7 +1810,7 @@ function bindBandeja(pane) {
       if (a === 'crear') {
         const c = bjCliente(it.mandante || it.cliente, it.rut);
         const pre = {mandante: c ? c.nombre : '', proyecto: UP(it.proyecto || it.asunto || ''), oc: it.oc || '', hes: it.hes || '', has: it.has || '', we: it.we || '', ocFecha: it.ocFecha || '', hesFecha: it.hesFecha || '', hasFecha: it.hasFecha || '', weFecha: it.weFecha || '', contacto: it.contacto || '',
-          documento: it.documento === 'B' ? 'B' : 'F', montoUF: bjMontoUF(it), estado: it.estado && ESTADOS_PROY.includes(it.estado) ? it.estado : (it.oc ? 'Adjudicado' : 'En oferta'),
+          documento: it.documento === 'B' ? 'B' : 'F', montoUF: bjMontoUF(it), estado: it.estado && ESTADOS_PROY.includes(estActual(it.estado, it.oc)) ? estActual(it.estado, it.oc) : (it.oc ? 'En ejecución' : 'En oferta'),
           obs: `[${fdate(it.recibido || today())}] Desde correo: ${it.asunto || ''}`, _newCli: c ? '' : UP(it.mandante || it.cliente || ''), _rut: it.rut ? rutFmt(it.rut) : '', _extra: it.glosa ? {glosaFact: it.glosa} : {}, _bj: it.id};
         openEditor('proyectos', null, null, pre);
       }
@@ -2438,8 +2441,8 @@ async function save(kind, rec) {
       { // al emitir la factura/boleta, el proyecto pasa a «Facturado» (si estaba en una etapa anterior).
         // Cobro parcial (anticipo / estado de pago) de un proyecto aún no entregado y con saldo por facturar: mantiene su estado.
         const pr = proyById(data.proyectoId);
-        if (pr && data.estado !== 'Anulada' && ['En oferta', 'Adjudicado', 'Solicitar ODC', 'En ejecución', 'Entregado', 'Solicitar HES/WE/HAS', 'Facturar'].includes(pr.estado)) {
-          const saldo = saldoDesp, parcial = !['Entregado', 'Solicitar HES/WE/HAS', 'Facturar'].includes(pr.estado) && saldo > 0.005;
+        if (pr && data.estado !== 'Anulada' && ['En oferta', 'Solicitar ODC', 'En ejecución', 'Solicitar HES/WE/HAS', 'Facturar'].includes(pr.estado)) {
+          const saldo = saldoDesp, parcial = !['Solicitar HES/WE/HAS', 'Facturar'].includes(pr.estado) && saldo > 0.005;
           if (!parcial) { const {id: pid, ...pd} = pr; await put('proyectos', pid, {...pd, estado: 'Facturado'}); msgEst = ' · proyecto ' + pr.codigo + ' → Facturado'; }
           else msgEst = ' · cobro parcial: el proyecto sigue «' + pr.estado + '» (saldo ' + uf(saldo) + ' UF)';
         } }
