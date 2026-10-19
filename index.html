@@ -838,6 +838,9 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 const ESTADOS_DOC = ['Pendiente','Pagada','Pago parcial','Vencida','Anulada'];
 const ESTADOS_PROY = ['En oferta','Solicitar ODC','En ejecución','Solicitar HES/WE/HAS','Facturar','Facturado','Pagado','Suspendido / Terminado','No adjudicado','Cancelado'];
 const EST_ST = 'Suspendido / Terminado';
+// Orden de las tablas: por urgencia (lo que hay que hacer primero arriba). Solo ordena; los selectores siguen con ESTADOS_PROY.
+const ORD_URG = ['Facturar','Solicitar HES/WE/HAS','Solicitar ODC','Facturado','En ejecución','En oferta','Pagado','Suspendido / Terminado','No adjudicado','Cancelado'];
+const ordEst = (e, oc) => { const i = ORD_URG.indexOf(estActual(e, oc)); return i < 0 ? 99 : i; };
 // Estados antiguos (ya eliminados) → estado actual. Se aplica en memoria al abrir; en la nube se actualiza al guardar cada proyecto.
 function estActual(e, oc) { if (e === 'Adjudicado') return oc ? 'En ejecución' : 'Solicitar ODC'; if (e === 'Entregado') return 'Solicitar HES/WE/HAS'; if (e === 'Terminado' || e === 'Suspendido') return EST_ST; return e; }
 const MOTIVOS = ['Detenido por el mandante','No se ejecutó','Detenido por ING Estructural','Otro (ver observaciones)'];
@@ -1444,7 +1447,7 @@ const SORT_P = {
   montoCLP: {l: 'Monto ($)',             v: (p, m) => m.totalCLP},
   propio:   {l: 'Propio (UF)',           v: (p, m) => m.propioUF},
   entrega:  {l: 'Fecha de entrega',      v: p => p.entrega || '9999'},
-  estado:   {l: 'Estado',                v: p => ESTADOS_PROY.indexOf(p.estado)},
+  estado:   {l: 'Estado',                v: p => ordEst(p.estado, p.oc)},
   facturado:{l: 'Facturado (UF)',        v: (p, m) => m.facturadoUF},
   porFact:  {l: 'Por facturar (UF)',     v: (p, m) => m.porFacturar},
   pctF:     {l: '% facturado',           v: (p, m) => m.pctF == null ? -1 : m.pctF},
@@ -1461,7 +1464,7 @@ function vProyectos() {
   let rows = S.proyectos.slice().sort((a, b) => (b.anio - a.anio) || ((b.nGen||0) - (a.nGen||0)));
   { const sk = (S.sortP && SORT_P[S.sortP.k]) ? S.sortP : {k: 'estado', d: 1}, f = SORT_P[sk.k].v, d = sk.d, M = new Map(rows.map(p => [p.id, proyMetrics(p)]));
     const cmp = (x, y) => typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es', {numeric: true});
-    const ei = p => { const i = ESTADOS_PROY.indexOf(estActual(p.estado, p.oc)); return i < 0 ? 99 : i; };   // el estado manda siempre
+    const ei = p => ordEst(p.estado, p.oc);   // el estado manda siempre
     rows.sort((a, b) => (ei(a) - ei(b)) || (sk.k === 'estado' ? 0 : d * cmp(f(a, M.get(a.id)), f(b, M.get(b.id)))) || (a.mandante || '').localeCompare(b.mandante || '') || (a.codigo || '').localeCompare(b.codigo || '')); }
   if (q) rows = rows.filter(p => [p.codigo, p.mandante, p.proyecto, p.descripcion, p.contacto, p.oc, p.hes, p.has, p.we].join(' ').toLowerCase().includes(q));
   if (S.fEstado) rows = rows.filter(p => p.estado === S.fEstado);
@@ -1590,7 +1593,7 @@ function vCartera() {
   const q = S.q.toLowerCase(), cli = S.resCli || 'Todos';
   const all = S.proyectos.map(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const docCLP = m.pagado + m.porPagar;
     return {p, m, v, docCLP, pfCLP: Math.round(Math.max(m.porFacturar, 0) * v), cobro: cobroDe(p, m)}; });
-  const ep = r => { const i = ESTADOS_PROY.indexOf(estActual(r.p.estado, r.p.oc)); return i < 0 ? 99 : i; };
+  const ep = r => ordEst(r.p.estado, r.p.oc);
   let rows = all.slice().sort((a, b) => (ep(a) - ep(b)) || a.p.mandante.localeCompare(b.p.mandante) || (b.p.anio - a.p.anio) || ((b.p.nGen||0) - (a.p.nGen||0)));
   if (cli !== 'Todos') rows = rows.filter(r => r.p.mandante === cli);
   if (q) rows = rows.filter(r => [r.p.codigo, r.p.mandante, r.p.proyecto, r.p.descripcion, r.p.oc].join(' ').toLowerCase().includes(q));
