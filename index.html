@@ -1451,7 +1451,8 @@ const SORT_P = {
   pagado:   {l: 'Pagado ($)',            v: (p, m) => m.pagado},
   porPagar: {l: 'Por pagar ($)',         v: (p, m) => m.porPagar},
 };
-try { S.sortP = JSON.parse(localStorage.getItem('ing_sortP') || 'null'); } catch (e) {}
+S.sortP = {k: 'estado', d: 1};   // vista general: ordenada por estado (por defecto)
+try { const v = localStorage.getItem('ing_sortP2'); if (v != null) S.sortP = JSON.parse(v); } catch (e) {}
 function sortTh(key, label, cls = '', sub = '') { const on = S.sortP && S.sortP.k === key;
   return `<th class="sort ${cls} ${on ? 'on' : ''}" data-sort="${key}" title="Ordenar por ${esc(SORT_P[key].l)}">${label}<span class="si">${on ? (S.sortP.d > 0 ? '▲' : '▼') : '↕'}</span>${sub ? `<span class="thsub">${sub}</span>` : ''}</th>`; }
 const SUB_CI = 'c/IVA · bruto', SUB_SI = 's/IVA · bruto';
@@ -1879,7 +1880,7 @@ function bindPane() {
   const fe = $('#fEstado', pane); if (fe) fe.onchange = () => { S.fEstado = fe.value; render(); };
   pane.querySelectorAll('[data-festado]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const v = b.dataset.festado; S.fEstado = (v && S.fEstado === v) ? '' : v; render(); });
   liveCase($('#newCli', pane), UP);
-  const setSort = v => { S.sortP = v; try { localStorage.setItem('ing_sortP', JSON.stringify(v)); } catch (e) {} render(); };
+  const setSort = v => { S.sortP = v; try { localStorage.setItem('ing_sortP2', JSON.stringify(v)); } catch (e) {} render(); };
   pane.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => { const k = th.dataset.sort; setSort(S.sortP && S.sortP.k === k ? (S.sortP.d > 0 ? {k, d: -1} : null) : {k, d: 1}); });
   const sp = $('#sortP', pane); if (sp) sp.onchange = () => setSort(sp.value ? {k: sp.value, d: 1} : null);
   const sd = $('#sortDir', pane); if (sd) sd.onclick = () => { if (S.sortP) setSort({k: S.sortP.k, d: -S.sortP.d}); };
@@ -2524,7 +2525,7 @@ cargarUF();
 </script>
 
 <script>
-/* App instalable (PWA) — versión 20261008-1940. Funciona sin conexión y se actualiza sola al abrirla con internet. */
+/* App instalable (PWA) — versión 20261019-1511. Funciona sin conexión y se actualiza sola al abrirla con internet. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
