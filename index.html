@@ -1452,16 +1452,17 @@ const SORT_P = {
   porPagar: {l: 'Por pagar ($)',         v: (p, m) => m.porPagar},
 };
 S.sortP = {k: 'estado', d: 1};   // vista general: ordenada por estado (por defecto)
-try { const v = localStorage.getItem('ing_sortP2'); if (v != null) S.sortP = JSON.parse(v); } catch (e) {}
+try { const v = JSON.parse(localStorage.getItem('ing_sortP2')); if (v && SORT_P[v.k]) S.sortP = v; } catch (e) {}   // siempre hay orden: por estado y, dentro de cada estado, la columna elegida
 function sortTh(key, label, cls = '', sub = '') { const on = S.sortP && S.sortP.k === key;
   return `<th class="sort ${cls} ${on ? 'on' : ''}" data-sort="${key}" title="Ordenar por ${esc(SORT_P[key].l)}">${label}<span class="si">${on ? (S.sortP.d > 0 ? '▲' : '▼') : '↕'}</span>${sub ? `<span class="thsub">${sub}</span>` : ''}</th>`; }
 const SUB_CI = 'c/IVA · bruto', SUB_SI = 's/IVA · bruto';
 function vProyectos() {
   const q = S.q.toLowerCase();
   let rows = S.proyectos.slice().sort((a, b) => (b.anio - a.anio) || ((b.nGen||0) - (a.nGen||0)));
-  if (S.sortP && SORT_P[S.sortP.k]) { const f = SORT_P[S.sortP.k].v, d = S.sortP.d, M = new Map(rows.map(p => [p.id, proyMetrics(p)]));
+  { const sk = (S.sortP && SORT_P[S.sortP.k]) ? S.sortP : {k: 'estado', d: 1}, f = SORT_P[sk.k].v, d = sk.d, M = new Map(rows.map(p => [p.id, proyMetrics(p)]));
     const cmp = (x, y) => typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es', {numeric: true});
-    rows.sort((a, b) => d * cmp(f(a, M.get(a.id)), f(b, M.get(b.id))) || (a.mandante || '').localeCompare(b.mandante || '') || (a.codigo || '').localeCompare(b.codigo || '')); }
+    const ei = p => { const i = ESTADOS_PROY.indexOf(p.estado); return i < 0 ? 99 : i; };   // el estado manda siempre
+    rows.sort((a, b) => (sk.k === 'estado' ? d * (ei(a) - ei(b)) : (ei(a) - ei(b)) || d * cmp(f(a, M.get(a.id)), f(b, M.get(b.id)))) || (a.mandante || '').localeCompare(b.mandante || '') || (a.codigo || '').localeCompare(b.codigo || '')); }
   if (q) rows = rows.filter(p => [p.codigo, p.mandante, p.proyecto, p.descripcion, p.contacto, p.oc, p.hes, p.has, p.we].join(' ').toLowerCase().includes(q));
   if (S.fEstado) rows = rows.filter(p => p.estado === S.fEstado);
   if (S.fDoc) rows = rows.filter(p => p.documento === S.fDoc);
@@ -1472,8 +1473,8 @@ function vProyectos() {
     <input class="grow" id="q" type="search" placeholder="Buscar por código, mandante, proyecto, contacto, OC, HES, HAS o WE" value="${esc(S.q)}">
     <select id="fEstado"><option value="">Todos los estados</option>${ESTADOS_PROY.map(e => `<option value="${e}" ${S.fEstado===e?'selected':''}>${estadoTxt(e)}</option>`).join('')}</select>
     <select id="fDoc"><option value="">Factura y boleta</option><option value="F" ${S.fDoc==='F'?'selected':''}>Factura ING Estructural</option><option value="B" ${S.fDoc==='B'?'selected':''}>Boleta Germán Aguilera</option></select>
-    <select id="sortP" title="Ordenar la tabla"><option value="">Orden: más recientes</option>${Object.keys(SORT_P).map(k => `<option value="${k}" ${S.sortP && S.sortP.k === k ? 'selected' : ''}>Orden: ${SORT_P[k].l}</option>`).join('')}</select>
-    <button class="btn ghost mini" id="sortDir" title="Invertir el orden" ${S.sortP ? '' : 'disabled'}>${S.sortP && S.sortP.d < 0 ? '▼ desc.' : '▲ asc.'}</button>
+    <select id="sortP" title="Ordenar la tabla">${Object.keys(SORT_P).map(k => `<option value="${k}" ${(S.sortP ? S.sortP.k : 'estado') === k ? 'selected' : ''}>Orden: ${SORT_P[k].l}</option>`).join('')}</select>
+    <button class="btn ghost mini" id="sortDir" title="Invertir el orden">${S.sortP && S.sortP.d < 0 ? '▼ desc.' : '▲ asc.'}</button>
     <button class="btn" data-act="newProy">+ Nuevo proyecto</button>
     <button class="btn ghost" data-act="resumenProy" title="Resumen de proyectos (montos y estado) para ver o imprimir">🖨 Resumen</button>
     <button class="btn ghost" data-act="csv" data-what="proyectos">Exportar CSV</button>
@@ -1546,7 +1547,8 @@ function cardDoc(kind, d) {
 }
 function docList(kind) {
   const isF = kind === 'facturas', arr = S[kind], q = S.q.toLowerCase();
-  let rows = arr.slice().sort((a, b) => (b.fecha||'').localeCompare(a.fecha||'') || ((b.numero||0) - (a.numero||0)));
+  const ed = d => { const i = ESTADOS_DOC.indexOf(d.estado); return i < 0 ? 99 : i; };
+  let rows = arr.slice().sort((a, b) => (ed(a) - ed(b)) || (b.fecha||'').localeCompare(a.fecha||'') || ((b.numero||0) - (a.numero||0)));
   if (q) rows = rows.filter(d => [d.numero, proyById(d.proyectoId)?.proyecto, proyById(d.proyectoId)?.codigo, mandanteDe(d), d.glosa, d.obs].join(' ').toLowerCase().includes(q));
   if (S.fEstado) rows = rows.filter(d => d.estado === S.fEstado);
   const c = isF ? 'i' : 'g';
@@ -1588,7 +1590,8 @@ function vCartera() {
   const q = S.q.toLowerCase(), cli = S.resCli || 'Todos';
   const all = S.proyectos.map(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const docCLP = m.pagado + m.porPagar;
     return {p, m, v, docCLP, pfCLP: Math.round(Math.max(m.porFacturar, 0) * v), cobro: cobroDe(p, m)}; });
-  let rows = all.slice().sort((a, b) => a.p.mandante.localeCompare(b.p.mandante) || (b.p.anio - a.p.anio) || ((b.p.nGen||0) - (a.p.nGen||0)));
+  const ep = r => { const i = ESTADOS_PROY.indexOf(r.p.estado); return i < 0 ? 99 : i; };
+  let rows = all.slice().sort((a, b) => (ep(a) - ep(b)) || a.p.mandante.localeCompare(b.p.mandante) || (b.p.anio - a.p.anio) || ((b.p.nGen||0) - (a.p.nGen||0)));
   if (cli !== 'Todos') rows = rows.filter(r => r.p.mandante === cli);
   if (q) rows = rows.filter(r => [r.p.codigo, r.p.mandante, r.p.proyecto, r.p.descripcion, r.p.oc].join(' ').toLowerCase().includes(q));
   if (S.fEstado) rows = rows.filter(r => r.p.estado === S.fEstado);
@@ -1881,9 +1884,9 @@ function bindPane() {
   pane.querySelectorAll('[data-festado]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const v = b.dataset.festado; S.fEstado = (v && S.fEstado === v) ? '' : v; render(); });
   liveCase($('#newCli', pane), UP);
   const setSort = v => { S.sortP = v; try { localStorage.setItem('ing_sortP2', JSON.stringify(v)); } catch (e) {} render(); };
-  pane.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => { const k = th.dataset.sort; setSort(S.sortP && S.sortP.k === k ? (S.sortP.d > 0 ? {k, d: -1} : null) : {k, d: 1}); });
-  const sp = $('#sortP', pane); if (sp) sp.onchange = () => setSort(sp.value ? {k: sp.value, d: 1} : null);
-  const sd = $('#sortDir', pane); if (sd) sd.onclick = () => { if (S.sortP) setSort({k: S.sortP.k, d: -S.sortP.d}); };
+  pane.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => { const k = th.dataset.sort; setSort(S.sortP && S.sortP.k === k ? {k, d: -S.sortP.d} : {k, d: 1}); });
+  const sp = $('#sortP', pane); if (sp) sp.onchange = () => setSort({k: sp.value || 'estado', d: 1});
+  const sd = $('#sortDir', pane); if (sd) sd.onclick = () => { const c = S.sortP || {k: 'estado', d: 1}; setSort({k: c.k, d: -c.d}); };
   const fc = $('#fCob', pane); if (fc) fc.onchange = () => { S.fCob = fc.value; render(); };
   const fd = $('#fDoc', pane); if (fd) fd.onchange = () => { S.fDoc = fd.value; render(); };
   const ry = $('#resYear', pane); if (ry) ry.onchange = () => { S.resYear = +ry.value; render(); };
