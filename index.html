@@ -1461,8 +1461,8 @@ function vProyectos() {
   let rows = S.proyectos.slice().sort((a, b) => (b.anio - a.anio) || ((b.nGen||0) - (a.nGen||0)));
   { const sk = (S.sortP && SORT_P[S.sortP.k]) ? S.sortP : {k: 'estado', d: 1}, f = SORT_P[sk.k].v, d = sk.d, M = new Map(rows.map(p => [p.id, proyMetrics(p)]));
     const cmp = (x, y) => typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es', {numeric: true});
-    const ei = p => { const i = ESTADOS_PROY.indexOf(p.estado); return i < 0 ? 99 : i; };   // el estado manda siempre
-    rows.sort((a, b) => (sk.k === 'estado' ? d * (ei(a) - ei(b)) : (ei(a) - ei(b)) || d * cmp(f(a, M.get(a.id)), f(b, M.get(b.id)))) || (a.mandante || '').localeCompare(b.mandante || '') || (a.codigo || '').localeCompare(b.codigo || '')); }
+    const ei = p => { const i = ESTADOS_PROY.indexOf(estActual(p.estado, p.oc)); return i < 0 ? 99 : i; };   // el estado manda siempre
+    rows.sort((a, b) => (ei(a) - ei(b)) || (sk.k === 'estado' ? 0 : d * cmp(f(a, M.get(a.id)), f(b, M.get(b.id)))) || (a.mandante || '').localeCompare(b.mandante || '') || (a.codigo || '').localeCompare(b.codigo || '')); }
   if (q) rows = rows.filter(p => [p.codigo, p.mandante, p.proyecto, p.descripcion, p.contacto, p.oc, p.hes, p.has, p.we].join(' ').toLowerCase().includes(q));
   if (S.fEstado) rows = rows.filter(p => p.estado === S.fEstado);
   if (S.fDoc) rows = rows.filter(p => p.documento === S.fDoc);
@@ -1590,7 +1590,7 @@ function vCartera() {
   const q = S.q.toLowerCase(), cli = S.resCli || 'Todos';
   const all = S.proyectos.map(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const docCLP = m.pagado + m.porPagar;
     return {p, m, v, docCLP, pfCLP: Math.round(Math.max(m.porFacturar, 0) * v), cobro: cobroDe(p, m)}; });
-  const ep = r => { const i = ESTADOS_PROY.indexOf(r.p.estado); return i < 0 ? 99 : i; };
+  const ep = r => { const i = ESTADOS_PROY.indexOf(estActual(r.p.estado, r.p.oc)); return i < 0 ? 99 : i; };
   let rows = all.slice().sort((a, b) => (ep(a) - ep(b)) || a.p.mandante.localeCompare(b.p.mandante) || (b.p.anio - a.p.anio) || ((b.p.nGen||0) - (a.p.nGen||0)));
   if (cli !== 'Todos') rows = rows.filter(r => r.p.mandante === cli);
   if (q) rows = rows.filter(r => [r.p.codigo, r.p.mandante, r.p.proyecto, r.p.descripcion, r.p.oc].join(' ').toLowerCase().includes(q));
