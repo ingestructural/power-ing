@@ -635,6 +635,7 @@ td.prop{color:var(--ok);font-weight:700}
   body.print-doc #docOut .docout-box{box-shadow:none;padding:0;max-width:none}
   body.print-doc #docOut .noprint{display:none !important}
   body.print-doc .doccard{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.print-doc .dc-glosa{outline:none!important}
   body.print-doc .rp-sheet{-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:10px}
   body.print-doc .rp-tab tr{break-inside:avoid}
 }
@@ -2093,6 +2094,8 @@ function docCardHtml(D) {
   // hl: fila destacada (Monto en UF) en negrita y azul oscuro #1d4f91
   const mon = (l, v, b, hl) => { const s = (b ? 'font-weight:700;border-top:2px solid ' + c + ';' : '') + (hl ? 'font-weight:700;color:#1d4f91;' : '');
     return `<tr><td style="padding:5px 10px;${s}">${l}</td><td style="padding:5px 10px;text-align:right;font-family:'IBM Plex Mono',ui-monospace,monospace;${s}">${v}</td></tr>`; };
+  // glosa: único contenido editable del recuadro (se sincroniza con el formulario y el PDF en docSalida)
+  const glosa = `<span class="dc-glosa" contenteditable="plaintext-only" spellcheck="false" title="Clic para editar la glosa" style="display:inline-block;min-width:140px;padding:0 3px;border-radius:2px;outline:1px dashed #9aa7b5;outline-offset:2px;cursor:text">${esc(D.glosa)}</span>`;
   const p = D.p, refs = p ? [['OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].filter(x => x[1]).map(x => `${x[0]} <b>${esc(x[1])}</b>`).join(' · ') : '';
   return `<div class="doccard" style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;border:2px solid ${c};border-radius:8px;overflow:hidden;max-width:640px;margin:0 auto;background:#fff">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #ddd">${lg}
@@ -2100,7 +2103,7 @@ function docCardHtml(D) {
       <div style="font-size:20px;font-weight:700;color:${c}">${D.isF ? 'FACTURA' : 'BOLETA DE HONORARIOS'} N° ${esc(D.numero || '—')}</div>
       <div style="font-size:13px">Fecha de emisión: <b>${esc(fdate(D.fecha) || '—')}</b></div></div></div>
     <div style="padding:10px 16px"><table style="border-collapse:collapse;font-size:13px;width:100%">
-      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Glosa', esc(D.glosa)) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc, p.ocFecha], ['HES', p.hes, p.hesFecha], ['HAS', p.has, p.hasFecha], ['WE', p.we, p.weFecha]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div>${x[1] && x[2] ? `<div style="font-size:10px;color:#666">${esc(fdate(x[2]))}</div>` : ''}</div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)') + row('Glosa', esc(D.glosa))}
+      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Glosa', glosa) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc, p.ocFecha], ['HES', p.hes, p.hesFecha], ['HAS', p.has, p.hasFecha], ['WE', p.we, p.weFecha]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div>${x[1] && x[2] ? `<div style="font-size:10px;color:#666">${esc(fdate(x[2]))}</div>` : ''}</div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)') + row('Glosa', glosa)}
       ${row('Tipo de cobro', esc((D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : '')))}
     </table></div>
     <div style="margin:0 16px 12px;background:${bg};border-radius:6px"><table style="border-collapse:collapse;font-size:14px;width:100%">
@@ -2249,6 +2252,9 @@ function docSalida(kind) {
   let blobP = null; const getBlob = () => (blobP = blobP || Promise.resolve().then(() => docPDF(D)).catch(e => { blobP = null; throw e; }));
   const conPDF = fn => async () => { try { const b = await getBlob(); await fn(b); } catch (e) { toast(e.message || 'No se pudo generar el PDF'); msg('No se pudo generar el PDF: ' + (e.message || e) + '. Puede usar «Imprimir» → Guardar como PDF.'); } };
   const cerrar = () => { host.remove(); document.body.classList.remove('print-doc'); };
+  const gEd = host.querySelector('.dc-glosa');   // glosa editable: actualiza el PDF y el campo del formulario
+  gEd.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); gEd.blur(); } });
+  gEd.addEventListener('input', () => { D.glosa = gEd.textContent.replace(/\s+/g, ' ').trim(); blobP = null; const f = document.getElementById('e-glosa'); if (f) f.value = D.glosa; });
   host.querySelector('#dClose').onclick = cerrar;
   host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
   host.querySelector('#dPrint').onclick = () => { document.body.classList.add('print-doc'); const off = () => { document.body.classList.remove('print-doc'); window.removeEventListener('afterprint', off); }; window.addEventListener('afterprint', off); window.print(); setTimeout(off, 1500); };
