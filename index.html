@@ -2090,7 +2090,9 @@ function docCardHtml(D) {
   const c = D.isF ? '#1d4f91' : '#2f6b2f', bg = D.isF ? '#eef4fb' : '#eef7ee';
   const logo = document.querySelector('img.logo'), lg = logo ? `<img src="${logo.src}" alt="ING Estructural" style="height:46px;width:auto">` : '';
   const row = (l, v, b) => v ? `<tr><td style="padding:4px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">${l}</td><td style="padding:4px 0;${b ? 'font-weight:700' : ''}">${v}</td></tr>` : '';
-  const mon = (l, v, b) => `<tr><td style="padding:5px 10px;${b ? 'font-weight:700;border-top:2px solid ' + c : ''}">${l}</td><td style="padding:5px 10px;text-align:right;font-family:'IBM Plex Mono',ui-monospace,monospace;${b ? 'font-weight:700;border-top:2px solid ' + c : ''}">${v}</td></tr>`;
+  // hl: fila destacada (Monto en UF) en negrita y azul oscuro #1d4f91
+  const mon = (l, v, b, hl) => { const s = (b ? 'font-weight:700;border-top:2px solid ' + c + ';' : '') + (hl ? 'font-weight:700;color:#1d4f91;' : '');
+    return `<tr><td style="padding:5px 10px;${s}">${l}</td><td style="padding:5px 10px;text-align:right;font-family:'IBM Plex Mono',ui-monospace,monospace;${s}">${v}</td></tr>`; };
   const p = D.p, refs = p ? [['OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].filter(x => x[1]).map(x => `${x[0]} <b>${esc(x[1])}</b>`).join(' · ') : '';
   return `<div class="doccard" style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;border:2px solid ${c};border-radius:8px;overflow:hidden;max-width:640px;margin:0 auto;background:#fff">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #ddd">${lg}
@@ -2103,7 +2105,7 @@ function docCardHtml(D) {
       ${row('Tipo de cobro', esc((D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : '')))}
     </table></div>
     <div style="margin:0 16px 12px;background:${bg};border-radius:6px"><table style="border-collapse:collapse;font-size:14px;width:100%">
-      ${mon('Monto en UF', uf(D.d.montoUF) + ' UF')}${mon('Valor UF', clp2(D.k.v))}
+      ${mon('Monto en UF', uf(D.d.montoUF) + ' UF', false, true)}${mon('Valor UF', clp2(D.k.v))}
       ${D.isF ? mon('Neto', clp(D.k.neto)) + mon(`IVA (${pct(P().iva)})`, clp(D.k.iva)) + mon('TOTAL', clp(D.k.total), true)
               : mon('Bruto', clp(D.k.total)) + mon(`Retención (${pct(D.k.r)})${D.retiene ? ' — a cargo del ' + D.retiene.toLowerCase() : ''}`, clp(D.k.ret)) + mon('LÍQUIDO', clp(D.k.liq), true)}
     </table></div>
@@ -2205,10 +2207,10 @@ async function docPDF(D) {
   const hB = mon.length*7.5 + 3;
   doc.setFillColor(...BG); doc.roundedRect(X0 + 3, y, W - 6, hB, 1.5, 1.5, 'F');
   let ym = y + 6.5;
-  mon.forEach((m, i) => { const last = i === mon.length - 1;
+  mon.forEach((m, i) => { const last = i === mon.length - 1, hl = i === 0; // hl: Monto en UF en negrita y azul oscuro
     if (last) { doc.setDrawColor(...C); doc.setLineWidth(0.6); doc.line(X0 + 3, ym - 5, X1 - 3, ym - 5); }
-    doc.setFont('helvetica', last ? 'bold' : 'normal'); doc.setFontSize(last ? 12 : 10.5); doc.setTextColor(20);
-    doc.text(pdfTxt(m[0]), X0 + 7, ym); doc.setFont('helvetica', last ? 'bold' : 'normal'); doc.text(pdfTxt(m[1]), X1 - 7, ym, {align: 'right'}); ym += 7.5; });
+    doc.setFont('helvetica', last || hl ? 'bold' : 'normal'); doc.setFontSize(last ? 12 : 10.5); if (hl) doc.setTextColor(29, 79, 145); else doc.setTextColor(20);
+    doc.text(pdfTxt(m[0]), X0 + 7, ym); doc.setFont('helvetica', last || hl ? 'bold' : 'normal'); doc.text(pdfTxt(m[1]), X1 - 7, ym, {align: 'right'}); ym += 7.5; });
   y += hB + 7;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
   doc.text(pdfTxt(`Estado: ${D.estado || '-'}${D.fechaPago ? '  ·  pagado el ' + fdate(D.fechaPago) : ''}`), LX, y); y += 5;
