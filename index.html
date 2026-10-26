@@ -2000,7 +2000,7 @@ function openEditor(kind, id, preProy, pre) {
       <label>N° de ${isF?'factura':'boleta'}<input id="e-numero" type="number" value="${r.numero ?? nextNum}" required></label>
       <label class="full">Proyecto<select id="e-proyectoId"><option value="">(sin proyecto)</option>${proys.map(p=>`<option value="${p.id}" ${p.id===r.proyectoId?'selected':''}>${esc(p.codigo)} · ${esc(projName(p))} — ${esc(p.mandante)}${p.estado==='Cancelado'?' (cancelado)':''}</option>`).join('')}</select></label>
       <div class="pinfo full" id="pInfo"></div>
-      <label class="full">Descripción / glosa del documento<textarea id="e-glosa" rows="2" placeholder="Se completa con el proyecto elegido">${esc(r.glosa||'')}</textarea></label>
+      <label class="full">Descripción / glosa del documento<textarea id="e-glosa" rows="2" placeholder="Por defecto: nombre del proyecto sin código">${esc(r.glosa||'')}</textarea></label>
       <label>Tipo de cobro<select id="e-tipoCobro">${TIPOS_COBRO.map(t=>`<option ${t===(r.tipoCobro||'Total')?'selected':''}>${t}</option>`).join('')}</select></label>
       <label>% del monto del proyecto<input id="e-pct" inputmode="decimal" placeholder="ej. 30"></label>
       ${isF ? '' : `<label>Ingresar monto en<select id="e-moneda"><option value="UF" ${r.ingreso !== 'CLP' ? 'selected' : ''}>UF</option><option value="CLP" ${r.ingreso === 'CLP' ? 'selected' : ''}>$ (pesos)</option></select></label>
@@ -2048,7 +2048,7 @@ function docDatos(kind) {
   const isF = kind === 'facturas', p = proyById(val('proyectoId'));
   const d = {montoUF: numIn(val('montoUF')) || 0, valorUF: numIn(val('valorUF')), fecha: val('fecha')};
   const k = isF ? calcFactura(d) : calcBoleta(d);
-  return {isF, p, k, d, numero: val('numero'), fecha: val('fecha'), glosa: (val('glosa') || '').trim(), tipo: val('tipoCobro'), pctv: p && p.montoUF > 0 && d.montoUF > 0 ? (d.montoUF/p.montoUF*100).toLocaleString('es-CL', {maximumFractionDigits: 1}) : '',
+  return {isF, p, k, d, numero: val('numero'), fecha: val('fecha'), glosa: (val('glosa') || '').trim() || (p ? projName(p) : ''), tipo: val('tipoCobro'), pctv: p && p.montoUF > 0 && d.montoUF > 0 ? (d.montoUF/p.montoUF*100).toLocaleString('es-CL', {maximumFractionDigits: 1}) : '',
     estado: val('estado'), fechaPago: val('fechaPago'), retiene: val('retiene'), obs: (val('obs') || '').trim()};
 }
 /* ---------- Resumen de proyectos (vista + impresión): nombre, montos bruto/líquido (boleta) o sin/con IVA (factura) y estado.
@@ -2090,7 +2090,9 @@ function docCardHtml(D) {
   const c = D.isF ? '#1d4f91' : '#2f6b2f', bg = D.isF ? '#eef4fb' : '#eef7ee';
   const logo = document.querySelector('img.logo'), lg = logo ? `<img src="${logo.src}" alt="ING Estructural" style="height:46px;width:auto">` : '';
   const row = (l, v, b) => v ? `<tr><td style="padding:4px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">${l}</td><td style="padding:4px 0;${b ? 'font-weight:700' : ''}">${v}</td></tr>` : '';
-  const mon = (l, v, b) => `<tr><td style="padding:5px 10px;${b ? 'font-weight:700;border-top:2px solid ' + c : ''}">${l}</td><td style="padding:5px 10px;text-align:right;font-family:'IBM Plex Mono',ui-monospace,monospace;${b ? 'font-weight:700;border-top:2px solid ' + c : ''}">${v}</td></tr>`;
+  // hl: fila destacada (Monto en UF) en negrita y azul oscuro #1d4f91
+  const mon = (l, v, b, hl) => { const s = (b ? 'font-weight:700;border-top:2px solid ' + c + ';' : '') + (hl ? 'font-weight:700;color:#1d4f91;' : '');
+    return `<tr><td style="padding:5px 10px;${s}">${l}</td><td style="padding:5px 10px;text-align:right;font-family:'IBM Plex Mono',ui-monospace,monospace;${s}">${v}</td></tr>`; };
   const p = D.p, refs = p ? [['OC', p.oc], ['HES', p.hes], ['HAS', p.has], ['WE', p.we]].filter(x => x[1]).map(x => `${x[0]} <b>${esc(x[1])}</b>`).join(' · ') : '';
   return `<div class="doccard" style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;border:2px solid ${c};border-radius:8px;overflow:hidden;max-width:640px;margin:0 auto;background:#fff">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #ddd">${lg}
@@ -2098,12 +2100,11 @@ function docCardHtml(D) {
       <div style="font-size:20px;font-weight:700;color:${c}">${D.isF ? 'FACTURA' : 'BOLETA DE HONORARIOS'} N° ${esc(D.numero || '—')}</div>
       <div style="font-size:13px">Fecha de emisión: <b>${esc(fdate(D.fecha) || '—')}</b></div></div></div>
     <div style="padding:10px 16px"><table style="border-collapse:collapse;font-size:13px;width:100%">
-      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc, p.ocFecha], ['HES', p.hes, p.hesFecha], ['HAS', p.has, p.hasFecha], ['WE', p.we, p.weFecha]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div>${x[1] && x[2] ? `<div style="font-size:10px;color:#666">${esc(fdate(x[2]))}</div>` : ''}</div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)')}
-      ${row('Glosa', esc(D.glosa))}
+      ${p ? row('Proyecto', `<b style="color:${c}">${esc(p.codigo)}</b> ${esc(projName(p))}`, true) + row('Glosa', esc(D.glosa)) + row('Mandante', `<b style="color:#1f5fa8">${esc(p.mandante)}</b>`) + row('RUT', esc(rutDe(p.mandante))) + row('Contacto', esc(TITLE(p.contacto || ''))) + `<tr><td style="padding:6px 10px 4px 0;color:#555;white-space:nowrap;vertical-align:top;width:105px">Referencias<br>del cliente</td><td style="padding:4px 0"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['N° OC', p.oc, p.ocFecha], ['HES', p.hes, p.hesFecha], ['HAS', p.has, p.hasFecha], ['WE', p.we, p.weFecha]].map(x => `<div style="border:1px solid #cfd6de;border-radius:4px;padding:3px 6px"><div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.03em">${x[0]}</div><div style="font-weight:700;font-family:'IBM Plex Mono',ui-monospace,monospace">${esc(x[1] || '—')}</div>${x[1] && x[2] ? `<div style="font-size:10px;color:#666">${esc(fdate(x[2]))}</div>` : ''}</div>`).join('')}</div></td></tr>` : row('Proyecto', '(sin proyecto)') + row('Glosa', esc(D.glosa))}
       ${row('Tipo de cobro', esc((D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : '')))}
     </table></div>
     <div style="margin:0 16px 12px;background:${bg};border-radius:6px"><table style="border-collapse:collapse;font-size:14px;width:100%">
-      ${mon('Monto en UF', uf(D.d.montoUF) + ' UF')}${mon('Valor UF', clp2(D.k.v))}
+      ${mon('Monto en UF', uf(D.d.montoUF) + ' UF', false, true)}${mon('Valor UF', clp2(D.k.v))}
       ${D.isF ? mon('Neto', clp(D.k.neto)) + mon(`IVA (${pct(P().iva)})`, clp(D.k.iva)) + mon('TOTAL', clp(D.k.total), true)
               : mon('Bruto', clp(D.k.total)) + mon(`Retención (${pct(D.k.r)})${D.retiene ? ' — a cargo del ' + D.retiene.toLowerCase() : ''}`, clp(D.k.ret)) + mon('LÍQUIDO', clp(D.k.liq), true)}
     </table></div>
@@ -2183,7 +2184,7 @@ async function docPDF(D) {
     const ls = doc.splitTextToSize(pdfTxt(val), VW); doc.text(ls, VX, y); y += ls.length*4.6 + 2.2;
   };
   const p = D.p;
-  if (p) { fila('Proyecto', `${p.codigo}  ${projName(p)}`, {bold: true, color: C}); fila('Mandante', p.mandante, {bold: true, color: [31, 95, 168]}); fila('Contacto', TITLE(p.contacto || ''));
+  if (p) { fila('Proyecto', `${p.codigo}  ${projName(p)}`, {bold: true, color: C}); fila('Glosa', D.glosa); fila('Mandante', p.mandante, {bold: true, color: [31, 95, 168]}); fila('Contacto', TITLE(p.contacto || ''));
     // referencias del cliente: 4 casillas siempre visibles (N° OC, HES, HAS, WE)
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(95); doc.text('Referencias', LX, y); doc.text('del cliente', LX, y + 4);
     const cw = (VW - 3*3)/4; doc.setDrawColor(200); doc.setLineWidth(0.3);
@@ -2196,8 +2197,8 @@ async function docPDF(D) {
       let v = pdfTxt(r[1] || '-'); while (v.length > 3 && doc.width(v) > cw - 4) v = v.slice(0, -2) + '…'.replace('…', '');
       doc.text(v, cx + 2, y + 4.8); });
     y += bh + 1; }
-  else fila('Proyecto', '(sin proyecto)');
-  fila('Glosa', D.glosa); fila('Tipo de cobro', (D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : ''));
+  else { fila('Proyecto', '(sin proyecto)'); fila('Glosa', D.glosa); }
+  fila('Tipo de cobro', (D.tipo || 'Total') + (D.pctv ? ` (${D.pctv} % del proyecto)` : ''));
   y += 2;
   const mon = [['Monto en UF', uf(D.d.montoUF) + ' UF'], ['Valor UF', clp2(D.k.v)]].concat(D.isF
     ? [['Neto', clp(D.k.neto)], [`IVA (${pct(P().iva)})`, clp(D.k.iva)], ['TOTAL', clp(D.k.total)]]
@@ -2205,10 +2206,10 @@ async function docPDF(D) {
   const hB = mon.length*7.5 + 3;
   doc.setFillColor(...BG); doc.roundedRect(X0 + 3, y, W - 6, hB, 1.5, 1.5, 'F');
   let ym = y + 6.5;
-  mon.forEach((m, i) => { const last = i === mon.length - 1;
+  mon.forEach((m, i) => { const last = i === mon.length - 1, hl = i === 0; // hl: Monto en UF en negrita y azul oscuro
     if (last) { doc.setDrawColor(...C); doc.setLineWidth(0.6); doc.line(X0 + 3, ym - 5, X1 - 3, ym - 5); }
-    doc.setFont('helvetica', last ? 'bold' : 'normal'); doc.setFontSize(last ? 12 : 10.5); doc.setTextColor(20);
-    doc.text(pdfTxt(m[0]), X0 + 7, ym); doc.setFont('helvetica', last ? 'bold' : 'normal'); doc.text(pdfTxt(m[1]), X1 - 7, ym, {align: 'right'}); ym += 7.5; });
+    doc.setFont('helvetica', last || hl ? 'bold' : 'normal'); doc.setFontSize(last ? 12 : 10.5); if (hl) doc.setTextColor(29, 79, 145); else doc.setTextColor(20);
+    doc.text(pdfTxt(m[0]), X0 + 7, ym); doc.setFont('helvetica', last || hl ? 'bold' : 'normal'); doc.text(pdfTxt(m[1]), X1 - 7, ym, {align: 'right'}); ym += 7.5; });
   y += hB + 7;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
   doc.text(pdfTxt(`Estado: ${D.estado || '-'}${D.fechaPago ? '  ·  pagado el ' + fdate(D.fechaPago) : ''}`), LX, y); y += 5;
@@ -2309,7 +2310,7 @@ ${[['OC',p.oc,p.ocFecha],['HES',p.hes,p.hesFecha],['HAS',p.has,p.hasFecha],['WE'
       ${p.estado === 'Cancelado' ? '<p class="warn small">Proyecto cancelado.</p>' : ''}`;
     $('#bSaldo').onclick = () => { setM(Math.max(sal, 0)); tc.value = facOtros > 0 ? 'Saldo final' : 'Total'; syncPct(); };
     if (fill) {
-      const g = p.glosaFact || projName(p);
+      const g = projName(p); // glosa por defecto: nombre del proyecto sin código (editable)
       if (!gl.value.trim() || gl.value === autoG) { gl.value = g; autoG = g; }
       if (!mU.value.trim() || mU.value === autoM) { setM(Math.max(sal, 0)); tc.value = facOtros > 0 ? 'Saldo final' : 'Total'; }
     }
