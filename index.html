@@ -23,6 +23,8 @@
 #pwLogin input{font-size:16px;padding:9px 10px}
 #pwLogin .btn{padding:10px;font-size:1rem;margin-top:4px}
 #pwLogin .pwl-err{min-height:1.2em;color:var(--bad,#b3261e);font-size:.85rem;text-align:center}
+.acbtn{font:inherit;font-size:.74rem;font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid transparent;cursor:pointer;white-space:nowrap;align-self:flex-end}
+.acbtn.ok{background:#dcfce7;color:#15803d} .acbtn.pend{background:#fef3c7;color:#b45309;border-color:#f59e0b}
 .pwsync{font-size:.74rem;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap}
 .pwsync.ok{background:#dcfce7;color:#15803d} .pwsync.pend{background:#fef3c7;color:#b45309} .pwsync.off{background:#fee2e2;color:#b91c1c}
 .pwout{font:600 .74rem var(--ff-d,system-ui);border:1px solid var(--line,#ccc);background:transparent;color:var(--muted,#555);border-radius:4px;padding:2px 8px;cursor:pointer}
@@ -794,7 +796,8 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
       <p>Administración ING Estructural · proyectos, facturas, boletas de honorarios y resumen tributario</p>
     </div></div>
     <div class="toprt"><div class="hoy" id="hoyBox"><span id="hoyFecha"></span><span class="ufv">UF <b id="hoyUF">—</b></span><small id="hoyUFsrc"></small></div>
-    <div class="who"><span class="i">Facturas · ING Estructural</span><span class="g">Boletas · Germán Aguilera</span></div></div>
+    <div class="who"><span class="i">Facturas · ING Estructural</span><span class="g">Boletas · Germán Aguilera</span></div>
+    <button type="button" class="acbtn" id="acBtn" hidden></button></div>
   </header>
   <div id="modeMsg" class="mode" hidden></div>
   <div id="fileBar" class="filebar" hidden>
@@ -1244,7 +1247,44 @@ async function fsInit() {
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.shiftKey ? fsSaveAs() : fsSave(); } });
 }
 
+/* ------------------------------------------------------------------ lista de proyectos para AutoCAD
+   El comando A1 de AutoCAD (ACTVINETA.lsp) lee la lista de proyectos (código, proyecto, mandante,
+   estado) de proyectos_ING_Estructural_*.csv. Aquí se elige una vez la carpeta (Documentos\GitHub\
+   mesa-ing\Claude outputs) y POWER escribe proyectos_ING_Estructural_AutoCAD.csv cada vez que cambian
+   los proyectos (mismo formato que Exportar CSV de Proyectos). El navegador pide confirmar el permiso
+   de escritura al abrir POWER: el botón queda en amarillo hasta hacer clic en él. */
+const AC = {dir: null, ok: false, last: '', t: null, file: 'proyectos_ING_Estructural_AutoCAD.csv'};
+function acBtn() {
+  const b = document.getElementById('acBtn'); if (!b || !FS.supported) return;
+  b.hidden = false;
+  if (!AC.dir) { b.className = 'acbtn pend'; b.textContent = 'Lista AutoCAD: elegir carpeta'; b.title = 'Elija la carpeta Claude outputs para que AutoCAD (comando A1) tenga la lista de proyectos'; }
+  else if (!AC.ok) { b.className = 'acbtn pend'; b.textContent = 'Lista AutoCAD: activar'; b.title = 'Clic para permitir que POWER actualice ' + AC.file + ' en ' + AC.dir.name; }
+  else { b.className = 'acbtn ok'; b.textContent = 'Lista AutoCAD ✓'; b.title = AC.file + ' en ' + AC.dir.name + ' se actualiza sola. Clic: actualizar ahora · Clic derecho: cambiar carpeta'; }
+}
+async function acWrite(force) {
+  if (!AC.dir || !AC.ok) return;
+  if (!LOCAL && !S.loaded.proyectos) return;
+  const csv = buildCSV('proyectos'); if (!force && csv === AC.last) return;
+  try { const h = await AC.dir.getFileHandle(AC.file, {create: true}); const w = await h.createWritable(); await w.write(csv); await w.close(); AC.last = csv; if (force) toast('Lista de proyectos para AutoCAD actualizada en ' + AC.dir.name); }
+  catch (e) { AC.ok = false; acBtn(); toast('No se pudo escribir la lista para AutoCAD: ' + e.message); }
+}
+function acSoon() { if (!AC.ok) return; clearTimeout(AC.t); AC.t = setTimeout(() => acWrite(false), 2000); }
+async function acPick() {
+  try { const d = await window.showDirectoryPicker({id: 'ing-autocad', mode: 'readwrite'}); AC.dir = d; AC.ok = true; await idbSet('acdir', d); acBtn(); acWrite(true); }
+  catch (e) { if (e.name !== 'AbortError') toast('No se pudo abrir la carpeta'); }
+}
+async function acInit() {
+  if (!FS.supported) return;
+  const b = document.getElementById('acBtn'); if (!b) return;
+  b.onclick = async () => { if (!AC.dir) return acPick(); if (!AC.ok) { AC.ok = await ensurePerm(AC.dir); acBtn(); if (AC.ok) acWrite(true); return; } acWrite(true); };
+  b.oncontextmenu = e => { e.preventDefault(); acPick(); };
+  AC.dir = await idbGet('acdir');
+  if (AC.dir) { try { AC.ok = (await AC.dir.queryPermission({mode: 'readwrite'})) === 'granted'; } catch (e) { AC.ok = false; } }
+  acBtn(); acSoon();
+}
+
 async function start() {
+  acInit();
   try { db = window.PW_CLOUD ? await window.PW_CLOUD.db() : await window.claude?.use?.('db'); } catch (e) { db = null; }   // PW_CLOUD: versión app (Supabase)
   try { downloads = await window.claude?.use?.('downloads'); } catch (e) { downloads = null; }
   if (!db) {
@@ -1381,6 +1421,7 @@ function render() {
   { const b = document.getElementById('bjBadge'); if (b) { const n = bjPend(); b.hidden = !n; b.textContent = n; } }
   { const f = document.getElementById('flHead'); if (f) f.remove(); } setTimeout(stickHead, 0);
   if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); try { if (selS != null) el.setSelectionRange(selS, selS); } catch (e) {} } }
+  acSoon();
 }
 function renderKpis() {
   const y = new Date().getFullYear();
@@ -2469,7 +2510,7 @@ async function save(kind, rec) {
 }
 
 /* ------------------------------------------------------------------ exportar */
-async function exportCSV(what) {
+function buildCSV(what) {
   const sep = ';', q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
   let rows = [];
   if (what === 'proyectos') { rows.push(['Código','Año','Empresa mandante','Proyecto','Contacto','Documento','Monto UF','Monto $','Entrega','Estado','Fecha cancelación','Motivo cancelación','Facturado UF','Por facturar UF','Pagado $','Por pagar $','Terceros UF','Terceros pendientes UF','Propio UF','Detalle terceros','OC','HES','HAS','WE','Observaciones']);
@@ -2481,7 +2522,10 @@ async function exportCSV(what) {
   else if (what === 'cartera') { rows.push(['Código','Mandante','Proyecto','Documento','Estado proyecto','Monto UF','Monto $','Documentado UF','Documentado $','Pagado $','Pendiente de pago $','Por facturar UF','Por facturar $','Status de cobro']);
     S.proyectos.forEach(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; rows.push([p.codigo,p.mandante,p.proyecto,p.documento==='F'?'Factura ING Estructural':'Boleta Germán Aguilera',p.estado,p.montoUF,m.totalCLP,m.facturadoUF,m.pagado+m.porPagar,m.pagado,m.porPagar,Math.max(m.porFacturar,0),Math.round(Math.max(m.porFacturar,0)*v),cobroDe(p,m)]); }); }
   else if (what === 'clientes') { rows.push(['Empresa mandante','RUT','Sigla']); S.clientes.forEach(c => rows.push([c.nombre, c.rut || '', sigla(c.nombre)])); }
-  const csv = '﻿' + rows.map(r => r.map(x => typeof x === 'number' ? String(x).replace('.', ',') : q(x)).join(sep)).join('\r\n');
+  return '﻿' + rows.map(r => r.map(x => typeof x === 'number' ? String(x).replace('.', ',') : q(x)).join(sep)).join('\r\n');
+}
+async function exportCSV(what) {
+  const csv = buildCSV(what);
   if (!downloads) { // archivo abierto directamente en un navegador: descarga normal
     try { const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'})); const aEl = document.createElement('a'); aEl.href = url; aEl.download = `${what}_ING_Estructural_${today()}.csv`; document.body.appendChild(aEl); aEl.click(); aEl.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
     catch (e) { toast('La descarga no está disponible en esta vista.'); } return; }
