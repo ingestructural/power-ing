@@ -811,6 +811,7 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
   <div class="kpis" id="kpis"></div>
   <nav class="tabs" role="tablist" id="tabs">
     <button role="tab" data-t="proyectos" id="tab-proyectos">Proyectos</button>
+    <button role="tab" data-t="cotizaciones" id="tab-cotizaciones">Cotizaciones</button>
     <button role="tab" data-t="bandeja" id="tab-bandeja">Bandeja ✉<span id="bjBadge" class="bj-badge" hidden></span></button>
     <button role="tab" data-t="cartera" id="tab-cartera">Cartera total</button>
     <button role="tab" data-t="facturas" class="ti" id="tab-facturas">Facturas</button>
@@ -853,7 +854,7 @@ const DEF_PARAMS = { iva: 0.19, ufRef: 41040.82, uta: 834504, gp: 0.30, gpTope: 
   igc: [[0,0,0],[13.5,0.04,0.54],[30,0.08,1.74],[50,0.135,4.49],[70,0.23,11.14],[90,0.304,17.8],[120,0.35,23.32],[310,0.40,38.82]] };
 
 /* ------------------------------------------------------------------ estado */
-const S = { clientes: [], proyectos: [], facturas: [], boletas: [], params: {...DEF_PARAMS}, imp: {},
+const S = { clientes: [], proyectos: [], facturas: [], boletas: [], cotizaciones: [], params: {...DEF_PARAMS}, imp: {},
   tab: 'proyectos', q: '', fEstado: '', fDoc: '', resYear: new Date().getFullYear(), resCli: 'Todos', impYear: new Date().getFullYear(), loaded: {} };
 try { const t = localStorage.getItem('ing_tab'); if (t) S.tab = t; } catch (e) {}
 
@@ -1296,6 +1297,8 @@ async function start() {
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
     S[c] = snap.docs.map(d => ({...d.data(), id: d.id})); S.loaded[c] = true; render();
   }, e => toast('No se pudo leer ' + c + ': ' + e.code)));
+  // cotizaciones del Cotizador (cotizador-ing.netlify.app): solo lectura en POWER, fuera de COLS para no tocar respaldos
+  db.collection('cotizaciones').onSnapshot(snap => { S.cotizaciones = snap.docs.map(d => ({...d.data(), id: d.id})); render(); }, () => {});
   db.collection('config').onSnapshot(snap => {
     snap.docs.forEach(d => { if (d.id === 'params') S.params = {...DEF_PARAMS, ...d.data()}; else S.imp[d.id] = d.data(); });
     S.loaded.config = true; render();
@@ -1414,7 +1417,7 @@ function render() {
   renderKpis();
   const ready = LOCAL || (S.loaded.proyectos && S.loaded.facturas && S.loaded.boletas && S.loaded.clientes);
   if (!ready) { $('#pane').innerHTML = '<div class="empty">Cargando registros…</div>'; return; }
-  const fn = {proyectos: vProyectos, facturas: vFacturas, boletas: vBoletas, resumen: vResumen, cartera: vCartera, impuesto: vImpuesto, clientes: vClientes, parametros: vParametros, bandeja: vBandeja}[S.tab] || vProyectos;
+  const fn = {proyectos: vProyectos, facturas: vFacturas, boletas: vBoletas, resumen: vResumen, cartera: vCartera, impuesto: vImpuesto, clientes: vClientes, parametros: vParametros, bandeja: vBandeja, cotizaciones: vCotizaciones}[S.tab] || vProyectos;
   const focusId = document.activeElement?.id, selS = document.activeElement?.selectionStart;
   $('#pane').innerHTML = fn();
   bindPane(); if (S.tab === 'bandeja') bindBandeja($('#pane'));
@@ -1542,7 +1545,7 @@ function vProyectos() {
     <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto&nbsp;UF · $','n cen',SUB_CI)}${sortTh('propio','Propio&nbsp;(UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado&nbsp;(UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar&nbsp;(UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
     <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Solicitar HES/WE/HAS','Facturar','Facturado','Pagado',EST_ST,'Cancelado','No adjudicado'].includes(p.estado);
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''} ${estCls(p.estado, p.documento)}" data-edit="proyectos" data-id="${p.id}">
-      <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
+      <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${cotDe(p).length ? `<span class="refl">Cotizaciones: ${cotDe(p).length}</span>` : ''}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
       <td class="keep">${p.documento==='F'?'<span class="pill p-i">Factura</span>':'<span class="pill p-g">Boleta</span>'}</td>
       <td class="n cen">${uf(p.montoUF)}<span class="fing">${clp(m.totalCLP)}</span></td><td class="n cen prop" title="${p.documento==='F'?'Neto sin IVA menos costo neto de terceros':'Bruto menos terceros'}">${uf(m.propioUF)}${m.tercUF > 0 ? `<span class="fing">terceros ${uf(m.tercUF)}</span>` : ''}</td><td class="nw ${late?'late':''}">${fdate(p.entrega)}</td>
       <td class="keep">${pillProy(p.estado, p.documento)}${(() => { const cp = cobroPend(p, m); const pg = pagarTerc(p, m); const pgH = pg ? `<div class="cobrar pag" title="El cliente ya pagó: pagar al tercero">🟠 PAGAR${pg.map(t => `<span>${uf(t.montoUF)} UF · ${esc(t.nombre||'tercero')}</span>`).join('')}</div>` : '';
@@ -1776,6 +1779,24 @@ function bjCambios(it, p) {   // lo que se modificaría en el proyecto
   return ch;
 }
 function bjMontoUF(it) { if (it.montoUF != null && it.montoUF !== '') return +it.montoUF; if (it.montoCLP) return Math.round(+bjDig(it.montoCLP) / P().ufRef * 100) / 100; return null; }
+/* ------------------------------------------------------------------ cotizaciones (guardadas desde el Cotizador) */
+const COT_URL = 'https://cotizador-ing.netlify.app/';
+const cotDe = p => S.cotizaciones.filter(c => c.proyId === p.id || (c.numero && c.numero === p.codigo));
+const cotNeto = c => (c.items || []).reduce((a, it) => a + (String(it.n || '').trim() ? (parseFloat(it.hi) || 0) * (parseFloat(c.tIng) || 0) + (parseFloat(it.hp) || 0) * (parseFloat(c.tProy) || 0) : 0), 0);
+const COT_TIPO = {rapida: 'Rápida', formal: 'Formal', flexible: 'Flexible'};
+const COT_EST = {Borrador: '', Emitida: 'p-warn', Aceptada: 'p-ok', Rechazada: 'p-bad'};
+function vCotizaciones() {
+  const q = (S.q || '').toLowerCase();
+  const rows = S.cotizaciones.filter(c => !q || [c.numero, c.rev, c.mandante, c.proyecto, c.estado, COT_TIPO[c.tipo]].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => String(a.numero || '~').localeCompare(String(b.numero || '~')) || String(b.guardado || '').localeCompare(String(a.guardado || '')));
+  return `<div class="bar"><input class="grow" id="q" type="search" placeholder="Buscar por N°, mandante, proyecto o estado" value="${esc(S.q)}"><a class="btn" style="text-decoration:none" href="${COT_URL}" target="_blank" rel="noopener">Abrir Cotizador</a></div>
+  ${rows.length ? `<div class="tbl"><table><thead><tr><th>N° / Rev.</th><th>Fecha</th><th>Empresa mandante</th><th>Proyecto</th><th>Tipo</th><th>Estado</th><th class="n">Neto (UF)</th><th class="n">Total c/IVA (UF)</th><th></th></tr></thead><tbody>
+  ${rows.map(c => { const n = cotNeto(c), iva = (parseFloat(c.iva) || 0) / 100;
+    return `<tr><td class="code keep">${esc(c.numero || '—')}${c.rev ? `<span class="fing">Rev. ${esc(c.rev)}</span>` : ''}</td><td class="nw">${fdate(c.fecha)}</td><td class="mand">${esc(c.mandante || '')}</td><td class="pname">${esc(c.proyecto || '')}</td>
+    <td>${esc(COT_TIPO[c.tipo] || '')}</td><td><span class="pill ${COT_EST[c.estado] || ''}">${esc(c.estado || 'Borrador')}</span></td><td class="n">${uf(n)}</td><td class="n">${uf(n * (1 + iva))}</td>
+    <td><a class="btn ghost" style="text-decoration:none" href="${COT_URL}#abrir=${encodeURIComponent(c.id)}" target="_blank" rel="noopener">Abrir</a></td></tr>`; }).join('')}
+  </tbody></table></div>` : `<div class="empty">${S.cotizaciones.length ? 'Sin resultados para la búsqueda.' : 'Aún no hay cotizaciones. Se guardan desde el Cotizador con «Guardar en POWER».'}</div>`}`;
+}
 function vBandeja() {
   const all = bjItems().sort((a, b) => String(b.recibido || '').localeCompare(String(a.recibido || '')));
   const ver = S.bjVer || 'pend';
