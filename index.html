@@ -1783,7 +1783,7 @@ function bjMontoUF(it) { if (it.montoUF != null && it.montoUF !== '') return +it
 const COT_URL = 'https://cotizador-ing.netlify.app/';
 const cotDe = p => S.cotizaciones.filter(c => c.proyId === p.id || (c.numero && c.numero === p.codigo));
 const cotNeto = c => (c.items || []).reduce((a, it) => a + (String(it.n || '').trim() ? (parseFloat(it.hi) || 0) * (parseFloat(c.tIng) || 0) + (parseFloat(it.hp) || 0) * (parseFloat(c.tProy) || 0) : 0), 0);
-const COT_TIPO = {rapida: 'Rápida', formal: 'Formal', flexible: 'Flexible'};
+const COT_TIPO = {rapida: 'Express', formal: 'Formal', flexible: 'Flexible'};
 const COT_EST = {Borrador: '', Emitida: 'p-warn', Aceptada: 'p-ok', Rechazada: 'p-bad'};
 function vCotizaciones() {
   const q = (S.q || '').toLowerCase();
