@@ -1118,7 +1118,7 @@ async function moveProject(pid) {
       try {
         const from = FS.file ? [dirLabel(), FS.fileName].filter(Boolean).join(' / ') : 'registro sin archivo';
         let id = P0.id; if (D.proyectos.some(p => p.id === id)) id = uid();
-        const {id: _o, ...rest} = P0;
+        const {id: _o, ...rest} = JSON.parse(JSON.stringify(P0));
         D.proyectos.push({...rest, ...nc, id, historial: [...(P0.historial || []), {codigo: P0.codigo, fecha: today(), de: from, motivo: 'Movido de archivo'}]});
         fs.forEach(f => D.facturas.push({...f, id: D.facturas.some(x => x.id === f.id) ? uid() : f.id, proyectoId: id}));
         bs.forEach(b => D.boletas.push({...b, id: D.boletas.some(x => x.id === b.id) ? uid() : b.id, proyectoId: id}));
@@ -1411,6 +1411,7 @@ function igc(base) {
 
 /* ------------------------------------------------------------------ render general */
 function render() {
+  aplicarCotizaciones();
   S.proyectos.forEach(p => { const n = estActual(p.estado, p.oc); if (n !== p.estado) p.estado = n; });
   visorUI();
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === S.tab ? 'true' : 'false'));
@@ -1547,7 +1548,7 @@ function vProyectos() {
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''} ${estCls(p.estado, p.documento)}" data-edit="proyectos" data-id="${p.id}">
       <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${cotDe(p).length ? `<span class="refl">Cotizaciones: ${cotDe(p).length}</span>` : ''}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
       <td class="keep">${p.documento==='F'?'<span class="pill p-i">Factura</span>':'<span class="pill p-g">Boleta</span>'}</td>
-      <td class="n cen">${uf(p.montoUF)}<span class="fing">${clp(m.totalCLP)}</span></td><td class="n cen prop" title="${p.documento==='F'?'Neto sin IVA menos costo neto de terceros':'Bruto menos terceros'}">${uf(m.propioUF)}${m.tercUF > 0 ? `<span class="fing">terceros ${uf(m.tercUF)}</span>` : ''}</td><td class="nw ${late?'late':''}">${fdate(p.entrega)}</td>
+      <td class="n cen">${uf(p.montoUF)}<span class="fing">${clp(m.totalCLP)}</span>${cotTag(p)}</td><td class="n cen prop" title="${p.documento==='F'?'Neto sin IVA menos costo neto de terceros':'Bruto menos terceros'}">${uf(m.propioUF)}${m.tercUF > 0 ? `<span class="fing">terceros ${uf(m.tercUF)}</span>` : ''}</td><td class="nw ${late?'late':''}">${fdate(p.entrega)}</td>
       <td class="keep">${pillProy(p.estado, p.documento)}${(() => { const cp = cobroPend(p, m); const pg = pagarTerc(p, m); const pgH = pg ? `<div class="cobrar pag" title="El cliente ya pagó: pagar al tercero">🟠 PAGAR${pg.map(t => `<span>${uf(t.montoUF)} UF · ${esc(t.nombre||'tercero')}</span>`).join('')}</div>` : '';
       return odcHtml(p) + pgH + (cp ? (cp.tipo === 'hes' ? `<div class="cobrar hes" title="Solicitar al cliente HES / WE / HAS para poder facturar">📋 SOLICITAR HES/WE/HAS<span>${esc(cp.t)}</span></div>` : cp.tipo === 'fact' ? `<div class="cobrar fac nd" data-newdoc="${p.documento==='F'?'facturas':'boletas'}" data-proy="${p.id}" title="Clic: emitir ${p.documento==='F'?'factura':'boleta'} de este proyecto">📄 ${p.documento==='F'?'FACTURAR':'EMITIR BOLETA'}<span>${esc(cp.t)}</span></div>` : `<div class="cobrar" title="Facturado / boleta emitida: falta cobrar">💲 COBRAR<span>${esc(cp.t)}</span></div>`) : ''); })()}${p.estado==='Cancelado'?`<div class="small muted">${fdate(p.fechaCancel)} · ${esc(p.motivoCancel||'sin motivo')}</div>`:''}</td>
       <td class="n c-fac ${m.facturadoUF>0.005?'on':''}">${uf(m.facturadoUF)}</td><td class="n c-pf ${m.porFacturar>0.005?'on':''}" style="${m.porFacturar<-0.005?'color:var(--bad)':''}">${uf(m.porFacturar)}</td><td class="n c-pct">${m.pctF==null?'—':`${pct(m.pctF)}<span class="pbar"><i style="width:${Math.max(0,Math.min(100,m.pctF*100))}%"></i></span>`}</td>
@@ -1573,7 +1574,7 @@ function cardProy(p) {
     <div class="pc-name">${esc(projName(p))}</div>
     <div class="pc-sub"><b class="pc-mand">${esc(p.mandante)}</b>${rutDe(p.mandante) ? ' <span class="rutm" style="display:inline">· ' + esc(rutDe(p.mandante)) + '</span>' : ''}${p.contacto ? ' · ' + esc(TITLE(p.contacto)) : ''}${refs ? `<br><span class="refl">${refs}</span>` : ''}</div>
     <div class="pc-av">${avisosProy(p, m)}</div>
-    <div class="pc-mon"><div><small>Monto</small><b>${uf(p.montoUF)} UF</b><i>${clp(m.totalCLP)}</i></div>
+    <div class="pc-mon"><div><small>Monto</small><b>${uf(p.montoUF)} UF</b><i>${clp(m.totalCLP)}</i>${cotTag(p)}</div>
       <div class="c-fac"><small>Facturado</small><b>${uf(m.facturadoUF)}</b><i>${m.pctF==null?'—':pct(m.pctF)}</i></div>
       <div class="c-pf"><small>Por facturar</small><b>${uf(m.porFacturar)}</b><i>UF</i></div>
       <div class="c-pag"><small>Pagado</small><b>${clp(m.pagado)}</b></div>
@@ -1783,6 +1784,25 @@ function bjMontoUF(it) { if (it.montoUF != null && it.montoUF !== '') return +it
 const COT_URL = 'https://cotizador-ing.netlify.app/';
 const cotDe = p => S.cotizaciones.filter(c => c.proyId === p.id || (c.numero && c.numero === p.codigo));
 const cotNeto = c => (c.items || []).reduce((a, it) => a + (String(it.n || '').trim() ? (parseFloat(it.hi) || 0) * (parseFloat(c.tIng) || 0) + (parseFloat(it.hp) || 0) * (parseFloat(c.tProy) || 0) : 0), 0);
+// total de la cotización en UF tal como lo registra POWER: factura con IVA, boleta en bruto (sin IVA)
+const cotTotal = c => { const n = cotNeto(c); return c.documento === 'B' ? n : n * (1 + (parseFloat(c.iva) || 0) / 100); };
+// cotización que manda en un proyecto: la aceptada; si no hay, la guardada más reciente
+const cotVigente = p => cotDe(p).slice().sort((a, b) => (b.estado === 'Aceptada') - (a.estado === 'Aceptada') || String(b.guardado || '').localeCompare(String(a.guardado || '')))[0] || null;
+/* Proyecto con monto 0: toma el monto y el documento (factura / boleta) de su cotización (N° = código del proyecto).
+   Solo en memoria: al guardar o respaldar se conservan los valores escritos a mano (monto 0), así sigue a la cotización si esta cambia. */
+function aplicarCotizaciones() {
+  S.proyectos.forEach(p => {
+    if (!p._orig) Object.defineProperties(p, {
+      _orig: {value: {montoUF: p.montoUF, documento: p.documento}, writable: true},
+      _cot: {value: null, writable: true},
+      toJSON: {value() { const o = {...this}; if (this._cot) { o.montoUF = this._orig.montoUF; o.documento = this._orig.documento; } return o; }}});
+    const o = p._orig, c = (+o.montoUF > 0) ? null : cotVigente(p), tot = c ? Math.round(cotTotal(c) * 100) / 100 : 0;
+    p._cot = c && tot > 0 ? c : null;
+    p.montoUF = p._cot ? tot : o.montoUF;
+    p.documento = p._cot ? (c.documento === 'B' ? 'B' : c.documento === 'F' ? 'F' : o.documento) : o.documento;
+  });
+}
+const cotTag = p => p._cot ? `<span class="fing" title="Monto 0 en POWER: se usa la cotización ${esc(p._cot.numero || '')}${p._cot.rev ? ' Rev. ' + esc(p._cot.rev) : ''} (${esc(p._cot.estado || 'Borrador')})">desde cotización</span>` : '';
 const COT_TIPO = {rapida: 'Express', formal: 'Formal', flexible: 'Flexible'};
 const COT_EST = {Borrador: '', Emitida: 'p-warn', Aceptada: 'p-ok', Rechazada: 'p-bad'};
 function vCotizaciones() {
@@ -1790,10 +1810,10 @@ function vCotizaciones() {
   const rows = S.cotizaciones.filter(c => !q || [c.numero, c.rev, c.mandante, c.proyecto, c.estado, COT_TIPO[c.tipo]].join(' ').toLowerCase().includes(q))
     .sort((a, b) => String(a.numero || '~').localeCompare(String(b.numero || '~')) || String(b.guardado || '').localeCompare(String(a.guardado || '')));
   return `<div class="bar"><input class="grow" id="q" type="search" placeholder="Buscar por N°, mandante, proyecto o estado" value="${esc(S.q)}"><a class="btn" style="text-decoration:none" href="${COT_URL}" target="_blank" rel="noopener">Abrir Cotizador</a></div>
-  ${rows.length ? `<div class="tbl"><table><thead><tr><th>N° / Rev.</th><th>Fecha</th><th>Empresa mandante</th><th>Proyecto</th><th>Tipo</th><th>Estado</th><th class="n">Neto (UF)</th><th class="n">Total c/IVA (UF)</th><th></th></tr></thead><tbody>
+  ${rows.length ? `<div class="tbl"><table><thead><tr><th>N° / Rev.</th><th>Fecha</th><th>Empresa mandante</th><th>Proyecto</th><th>Tipo</th><th>Estado</th><th class="n">Neto (UF)</th><th class="n">Total (UF)</th><th></th></tr></thead><tbody>
   ${rows.map(c => { const n = cotNeto(c), iva = (parseFloat(c.iva) || 0) / 100;
     return `<tr><td class="code keep">${esc(c.numero || '—')}${c.rev ? `<span class="fing">Rev. ${esc(c.rev)}</span>` : ''}</td><td class="nw">${fdate(c.fecha)}</td><td class="mand">${esc(c.mandante || '')}</td><td class="pname">${esc(c.proyecto || '')}</td>
-    <td>${esc(COT_TIPO[c.tipo] || '')}</td><td><span class="pill ${COT_EST[c.estado] || ''}">${esc(c.estado || 'Borrador')}</span></td><td class="n">${uf(n)}</td><td class="n">${uf(n * (1 + iva))}</td>
+    <td>${esc(COT_TIPO[c.tipo] || '')}</td><td><span class="pill ${COT_EST[c.estado] || ''}">${esc(c.estado || 'Borrador')}</span></td><td class="n">${uf(n)}</td><td class="n">${uf(cotTotal(c))}<span class="fing">${c.documento === 'B' ? 'boleta, bruto' : 'factura, c/IVA'}</span></td>
     <td><a class="btn ghost" style="text-decoration:none" href="${COT_URL}#abrir=${encodeURIComponent(c.id)}" target="_blank" rel="noopener">Abrir</a></td></tr>`; }).join('')}
   </tbody></table></div>` : `<div class="empty">${S.cotizaciones.length ? 'Sin resultados para la búsqueda.' : 'Aún no hay cotizaciones. Se guardan desde el Cotizador con «Guardar en POWER».'}</div>`}`;
 }
@@ -2017,7 +2037,7 @@ function openEditor(kind, id, preProy, pre) {
   const cls = kind === 'facturas' ? 'i' : kind === 'boletas' ? 'g' : '';
   let html = '';
   if (kind === 'proyectos') {
-    const r = rec || {anio: new Date().getFullYear(), documento: 'F', estado: 'En oferta', ...(pre || {})};
+    const r = rec ? (rec._cot ? {...rec, ...rec._orig} : rec) : {anio: new Date().getFullYear(), documento: 'F', estado: 'En oferta', ...(pre || {})};
     const clientes = S.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
     html = `<h3>${rec ? 'Proyecto ' + esc(rec.codigo) : 'Nuevo proyecto'}</h3><p class="small muted">${rec ? 'Si cambia la empresa mandante o el año, el código se reasigna al guardar: <span id="prevCode" class="code"></span>' + (rec.historial && rec.historial.length ? '<br>Códigos anteriores: ' + rec.historial.map(h => `<span class="code">${esc(h.codigo)}</span> (${fdate(h.fecha)}${h.de ? ', en ' + esc(h.de) : ''})`).join(' · ') : '') : 'El código se asigna al guardar: <span id="prevCode" class="code"></span>'}</p>
     <form class="form" id="frm">
@@ -2030,7 +2050,7 @@ function openEditor(kind, id, preProy, pre) {
       ${LOCAL && FS.supported ? `<div class="carpnote">📁 Carpeta: <b id="carpCli">${FS.dir ? esc(FS.dir.name) + ' / ' + esc(UP(r.mandante || '…')) : '(elija la carpeta base en «Carpeta…»)'}</b> <span class="muted">— la carpeta del cliente; se crea si no existe.</span></div>` : ''}
       <label>Contacto<input id="e-contacto" value="${esc(TITLE(r.contacto||''))}"></label>
       <label>Documento<select id="e-documento"><option value="F" ${r.documento==='F'?'selected':''}>Factura ING Estructural</option><option value="B" ${r.documento==='B'?'selected':''}>Boleta Germán Aguilera</option></select></label>
-      <label>Monto total (UF)<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required></label>
+      <label>Monto total (UF)<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required>${rec && rec._cot ? `<span class="small muted">Con 0 se usa la cotización ${esc(rec._cot.numero || '')}${rec._cot.rev ? ' Rev. ' + esc(rec._cot.rev) : ''}: ${uf(rec.montoUF)} UF, ${rec.documento === 'B' ? 'boleta' : 'factura'}.</span>` : '<span class="small muted">Con 0 se toma el valor de la cotización del proyecto.</span>'}</label>
       <label>Valor UF ($, opcional)<input id="e-valorUF" inputmode="decimal" value="${r.valorUF ?? ''}" placeholder="${uf(P().ufRef)}"></label>
       <label>Fecha de entrega comprometida<input id="e-entrega" type="date" value="${r.entrega||''}"></label>
       <label>Estado del proyecto<select id="e-estado">${ESTADOS_PROY.map(e=>`<option value="${e}" ${e===r.estado?'selected':''}>${estadoTxt(e, r.documento)}</option>`).join('')}</select></label>
