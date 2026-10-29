@@ -2037,7 +2037,7 @@ function openEditor(kind, id, preProy, pre) {
   const cls = kind === 'facturas' ? 'i' : kind === 'boletas' ? 'g' : '';
   let html = '';
   if (kind === 'proyectos') {
-    const r = rec ? (rec._cot ? {...rec, ...rec._orig} : rec) : {anio: new Date().getFullYear(), documento: 'F', estado: 'En oferta', ...(pre || {})};
+    const r = rec || {anio: new Date().getFullYear(), documento: 'F', estado: 'En oferta', ...(pre || {})};
     const clientes = S.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
     html = `<h3>${rec ? 'Proyecto ' + esc(rec.codigo) : 'Nuevo proyecto'}</h3><p class="small muted">${rec ? 'Si cambia la empresa mandante o el año, el código se reasigna al guardar: <span id="prevCode" class="code"></span>' + (rec.historial && rec.historial.length ? '<br>Códigos anteriores: ' + rec.historial.map(h => `<span class="code">${esc(h.codigo)}</span> (${fdate(h.fecha)}${h.de ? ', en ' + esc(h.de) : ''})`).join(' · ') : '') : 'El código se asigna al guardar: <span id="prevCode" class="code"></span>'}</p>
     <form class="form" id="frm">
@@ -2050,7 +2050,7 @@ function openEditor(kind, id, preProy, pre) {
       ${LOCAL && FS.supported ? `<div class="carpnote">📁 Carpeta: <b id="carpCli">${FS.dir ? esc(FS.dir.name) + ' / ' + esc(UP(r.mandante || '…')) : '(elija la carpeta base en «Carpeta…»)'}</b> <span class="muted">— la carpeta del cliente; se crea si no existe.</span></div>` : ''}
       <label>Contacto<input id="e-contacto" value="${esc(TITLE(r.contacto||''))}"></label>
       <label>Documento<select id="e-documento"><option value="F" ${r.documento==='F'?'selected':''}>Factura ING Estructural</option><option value="B" ${r.documento==='B'?'selected':''}>Boleta Germán Aguilera</option></select></label>
-      <label>Monto total (UF)<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required>${rec && rec._cot ? `<span class="small muted">Con 0 se usa la cotización ${esc(rec._cot.numero || '')}${rec._cot.rev ? ' Rev. ' + esc(rec._cot.rev) : ''}: ${uf(rec.montoUF)} UF, ${rec.documento === 'B' ? 'boleta' : 'factura'}.</span>` : '<span class="small muted">Con 0 se toma el valor de la cotización del proyecto.</span>'}</label>
+      <label>Monto total (UF)<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required>${rec && rec._cot ? `<span class="small muted">Valor de la cotización ${esc(rec._cot.numero || '')}${rec._cot.rev ? ' Rev. ' + esc(rec._cot.rev) : ''} (${rec.documento === 'B' ? 'boleta, bruto' : 'factura, con IVA'}). Sigue a la cotización mientras no lo cambie; si escribe otro monto, queda fijo.</span>` : '<span class="small muted">Con 0 se toma el valor de la cotización del proyecto.</span>'}</label>
       <label>Valor UF ($, opcional)<input id="e-valorUF" inputmode="decimal" value="${r.valorUF ?? ''}" placeholder="${uf(P().ufRef)}"></label>
       <label>Fecha de entrega comprometida<input id="e-entrega" type="date" value="${r.entrega||''}"></label>
       <label>Estado del proyecto<select id="e-estado">${ESTADOS_PROY.map(e=>`<option value="${e}" ${e===r.estado?'selected':''}>${estadoTxt(e, r.documento)}</option>`).join('')}</select></label>
@@ -2502,8 +2502,10 @@ async function save(kind, rec) {
       }
       if (!nuevoCli) { const rv = rutFmt((val('rut')||'').trim()), cc = S.clientes.find(c => c.nombre === mandante);
         if (cc && rv !== (cc.rut||'')) { const {id: cid, ...crest} = cc; try { await put('clientes', cid, {...crest, rut: rv}); } catch (e) { toast('No se pudo guardar el RUT'); } } }
-      const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), ocFecha: val('ocFecha') || '', hesFecha: val('hesFecha') || '', hasFecha: val('hasFecha') || '', weFecha: val('weFecha') || '', planta: UP((val('planta')||'').trim()), carpetaRuta: (val('carpetaRuta')||'').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: val('documento'),
-        montoUF: m, valorUF: v, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
+      // monto y documento tomados de la cotización y no cambiados: se guarda lo escrito a mano (0) para que siga a la cotización
+      const sigueCot = rec && rec._cot && Math.abs((m || 0) - rec.montoUF) < 0.005 && val('documento') === rec.documento;
+      const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), ocFecha: val('ocFecha') || '', hesFecha: val('hesFecha') || '', hasFecha: val('hasFecha') || '', weFecha: val('weFecha') || '', planta: UP((val('planta')||'').trim()), carpetaRuta: (val('carpetaRuta')||'').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: sigueCot ? rec._orig.documento : val('documento'),
+        montoUF: sigueCot ? rec._orig.montoUF : m, valorUF: v, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
       if (S.proyectos.some(p => projName(p) === base.proyecto && (!rec || p.id !== rec.id))) return err.textContent = 'Ya existe un proyecto con ese nombre.';
       base.creado = val('creado') || (rec ? rec.creado || '' : today());
       base.terceros = leerTerceros();
