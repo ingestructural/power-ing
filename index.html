@@ -1783,7 +1783,8 @@ function bjMontoUF(it) { if (it.montoUF != null && it.montoUF !== '') return +it
 /* ------------------------------------------------------------------ cotizaciones (guardadas desde el Cotizador) */
 const COT_URL = 'https://cotizador-ing.netlify.app/';
 const cotDe = p => S.cotizaciones.filter(c => c.proyId === p.id || (c.numero && c.numero === p.codigo));
-const cotNeto = c => (c.items || []).reduce((a, it) => a + (String(it.n || '').trim() ? (parseFloat(it.hi) || 0) * (parseFloat(c.tIng) || 0) + (parseFloat(it.hp) || 0) * (parseFloat(c.tProy) || 0) : 0), 0);
+// el cotizador guarda netoUF (sirve para todos los tipos, también Contrato marco, que no usa el cuadro de HH)
+const cotNeto = c => (c.netoUF != null && c.netoUF !== '' && isFinite(+c.netoUF)) ? +c.netoUF : (c.items || []).reduce((a, it) => a + (String(it.n || '').trim() ? (parseFloat(it.hi) || 0) * (parseFloat(c.tIng) || 0) + (parseFloat(it.hp) || 0) * (parseFloat(c.tProy) || 0) : 0), 0);
 // total de la cotización en UF tal como lo registra POWER: factura con IVA, boleta en bruto (sin IVA)
 const cotTotal = c => { const n = cotNeto(c); return c.documento === 'B' ? n : n * (1 + (parseFloat(c.iva) || 0) / 100); };
 // cotización que manda en un proyecto: la aceptada; si no hay, la guardada más reciente
@@ -1803,7 +1804,7 @@ function aplicarCotizaciones() {
   });
 }
 const cotTag = p => p._cot ? `<span class="fing" title="Monto 0 en POWER: se usa la cotización ${esc(p._cot.numero || '')}${p._cot.rev ? ' Rev. ' + esc(p._cot.rev) : ''} (${esc(p._cot.estado || 'Borrador')})">desde cotización</span>` : '';
-const COT_TIPO = {rapida: 'Express', formal: 'Formal', flexible: 'Flexible'};
+const COT_TIPO = {rapida: 'Express', formal: 'Formal', flexible: 'Flexible', marco: 'Contrato marco'};
 const COT_EST = {Borrador: '', Emitida: 'p-warn', Aceptada: 'p-ok', Rechazada: 'p-bad'};
 function vCotizaciones() {
   const q = (S.q || '').toLowerCase();
