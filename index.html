@@ -662,7 +662,7 @@ td.c-pp{background:color-mix(in srgb,#dc2626 6%,transparent)!important} td.c-pp.
 #visorBtn.vis-off{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
 #visorBar{background:#dc2626;color:#fff;font-weight:700;text-align:center;padding:4px 8px;font-size:12px;letter-spacing:.04em;border-radius:4px;margin-bottom:6px}
 html.pw-visor [data-act="newProy"],html.pw-visor [data-act="newFac"],html.pw-visor [data-act="newBol"],html.pw-visor [data-act="addCli"],html.pw-visor [data-act="cliDirs"],html.pw-visor #newCli,html.pw-visor #newCliRut,
-html.pw-visor #fbSave,html.pw-visor #fbSaveAs,html.pw-visor #fbNew,html.pw-visor [data-act="delCli"],html.pw-visor [data-act="savePar"]{display:none !important}
+html.pw-visor #fbSave,html.pw-visor #fbSaveAs,html.pw-visor #fbNew,html.pw-visor [data-act="delCli"],html.pw-visor [data-act="renCli"],html.pw-visor [data-act="savePar"]{display:none !important}
 html.pw-visor [data-sm],html.pw-visor #pane .ptab input,html.pw-visor #pane input[data-par]{pointer-events:none;opacity:.7}
 html.pw-visor .cobrar.nd{pointer-events:none;cursor:default}
 .visor-note{background:#ede9fe;color:#5b21b6;font-weight:700;padding:4px 8px;border-radius:4px;font-size:12px;margin:4px 0 8px}
@@ -1916,7 +1916,7 @@ function vClientes() {
   <div class="tbl"><table><thead><tr><th>Empresa mandante</th><th>RUT</th><th>Sigla</th><th>Sigla manual</th><th class="n">Proyectos</th><th></th></tr></thead><tbody>
   ${rows.map(c => { const s = sigla(c.nombre); const n = S.proyectos.filter(p=>p.mandante===c.nombre).length;
     return `<tr><td>${esc(c.nombre)}</td><td><input data-rutc="${c.id}" data-noupper size="13" placeholder="—" value="${esc(c.rut||'')}"></td><td class="code" style="${cnt[s]>1?'color:var(--warn)':''}">${esc(s)}</td><td><input id="sm-${c.id}" data-sm="${c.id}" maxlength="3" size="4" value="${esc(c.siglaManual||'')}" style="text-transform:uppercase"></td><td class="n">${n}</td>
-    <td>${n ? '' : `<button class="btn ghost" data-act="delCli" data-id="${c.id}">Eliminar</button>`}</td></tr>`; }).join('')}</tbody></table></div>
+    <td class="nw"><button class="btn ghost" data-act="renCli" data-id="${c.id}" title="Cambiar el nombre del cliente y de todos sus proyectos">Renombrar</button>${n ? '' : ` <button class="btn ghost" data-act="delCli" data-id="${c.id}">Eliminar</button>`}</td></tr>`; }).join('')}</tbody></table></div>
   <p class="note">La sigla se usa al crear el código de un proyecto nuevo; cambiarla no modifica los códigos ya asignados. En naranjo: siglas repetidas (el correlativo general igual hace único el código).</p>`;
 }
 function vParametros() {
@@ -2019,6 +2019,17 @@ async function act(a, b) {
   if (a === 'addCli') { const inp = $('#newCli'); const n = inp.value.trim().toUpperCase(); if (!n) return;
     if (S.clientes.some(c => c.nombre.toUpperCase() === n)) return toast('Ese cliente ya existe');
     const rI = $('#newCliRut'); try { await put('clientes', uid(), {nombre: n, siglaManual: '', rut: rutFmt(rI ? rI.value.trim() : '')}); toast('Cliente agregado'); } catch (e) { toast('No se pudo guardar'); } return; }
+  if (a === 'renCli') { // renombrar cliente: cambia el nombre en el cliente y en todos sus proyectos (la sigla y los códigos se mantienen)
+    const c = S.clientes.find(x => x.id === b.dataset.id); if (!c || visorStop()) return;
+    const v = prompt(`Nuevo nombre para «${c.nombre}»:`, c.nombre); if (v == null) return;
+    const n = v.trim().toUpperCase(); if (!n || n === c.nombre) return;
+    if (S.clientes.some(x => x.id !== c.id && x.nombre.toUpperCase() === n)) return toast('Ya existe un cliente con ese nombre');
+    const ps = S.proyectos.filter(p => p.mandante === c.nombre);
+    if (!confirm(`Cambiar «${c.nombre}» por «${n}» en el cliente y en ${ps.length} proyecto${ps.length === 1 ? '' : 's'}?\nLa sigla (${sigla(c.nombre)}) y los códigos de proyecto se mantienen.`)) return;
+    try { const {id: cid, ...cr} = c; await put('clientes', cid, {...cr, nombre: n, siglaManual: c.siglaManual || sigla(c.nombre)});
+      for (const p of ps) { const {id: pid, ...pr} = p; await put('proyectos', pid, {...pr, mandante: n}); }
+      toast(`Cliente renombrado (${ps.length} proyecto${ps.length === 1 ? '' : 's'})`); } catch (e) { toast('No se pudo renombrar: ' + (e.message || e)); }
+    return; }
   if (a === 'delCli') { try { await del('clientes', b.dataset.id); toast('Cliente eliminado'); } catch (e) { toast('No se pudo eliminar'); } return; }
   if (a === 'savePar') { const p = {...P(), rates: {...P().rates}};
     document.querySelectorAll('[data-par]').forEach(i => { const v = numIn(i.value); if (v != null) p[i.dataset.par] = v; });
