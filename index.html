@@ -97,7 +97,8 @@ html.pw-locked body>*:not(#pwLock):not(.toast){visibility:hidden}
     if (!sess) return;
     const all = {}; let from = 0; const step = 1000;
     for (;;) {
-      const rows = await rest('GET', `docs?select=col,id,data&order=col.asc,id.asc&offset=${from}&limit=${step}`);
+      // sin las colecciones de PDF (planos, memorias, informes y cotizaciones archivados, en base64): POWER no las usa y pesan varios MB
+      const rows = await rest('GET', `docs?select=col,id,data&col=not.like.*_pdf&order=col.asc,id.asc&offset=${from}&limit=${step}`);
       rows.forEach(r => { (all[r.col] = all[r.col] || {})[r.id] = r.data; });
       if (rows.length < step) break; from += step;
     }
