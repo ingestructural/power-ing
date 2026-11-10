@@ -794,6 +794,14 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
 .refs input.rfec{margin-top:3px;font-size:.74rem;padding:3px 6px;color:var(--muted)}
 .refd{display:block;font-size:.66rem;font-weight:400;color:var(--muted);font-family:var(--ff-b)}
 .smi{font-size:.72rem !important;color:var(--muted)}
+
+/* Cuadros de resumen (KPI): todos con fondo celeste muy tenue, rótulos azules y montos en negro (pedido de Germán, 10-11-2026) */
+:root{--kpi-bg:#F3F9FE;--kpi-bd:#D3E6F6;--kpi-top:#8EC3EA;--kpi-lbl:#0B4F96;--kpi-val:#111111}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--kpi-bg:#13263a;--kpi-bd:#25415e;--kpi-top:#3b82c4;--kpi-lbl:#8cc4f2;--kpi-val:#f1f5f9}}
+:root[data-theme="dark"]{--kpi-bg:#13263a;--kpi-bd:#25415e;--kpi-top:#3b82c4;--kpi-lbl:#8cc4f2;--kpi-val:#f1f5f9}
+#kpis .kpi,#kpis .kpi:nth-child(n){background:var(--kpi-bg) !important;border-color:var(--kpi-bd) !important;border-top-color:var(--kpi-top) !important}
+#kpis .kpi small,#kpis .kpi .kt,#kpis .kpi .kt.liq,#kpis .kpi em{color:var(--kpi-lbl) !important}
+#kpis .kpi b,#kpis .kpi:nth-child(n) b{color:var(--kpi-val) !important}
 </style>
 
 <div class="wrap">
