@@ -603,7 +603,11 @@ td.mand{font-weight:800;color:var(--logo1);letter-spacing:.02em}
 .hoy #hoyFecha{font-weight:600;color:var(--ink)}
 .hoy .ufv{font-family:var(--ff-d);font-weight:700;color:var(--logo1);background:color-mix(in srgb,var(--logo2) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--logo2) 40%,transparent);border-radius:4px;padding:2px 8px}
 .hoy .ufv b{font-family:var(--ff-m);font-size:1rem}
-.hoy small{font-size:.68rem;white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}
+.hoy small{font-size:.66rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+/* encabezado: el texto de la marca se ajusta antes de que la UF y los botones bajen de línea */
+header.top>.brandrow{flex:1 1 0;min-width:280px}
+header.top>.brandrow .brand{min-width:0;flex:1 1 200px}
+header.top>.toprt{flex:0 0 auto}
 .hoy .ufre{border:1px solid var(--line);background:var(--panel);color:var(--logo1);border-radius:4px;padding:0 7px;font-size:.9rem;line-height:1.5;cursor:pointer}
 .hoy .ufre:disabled{opacity:.6;cursor:wait}
 .hoy .ufre:disabled span{display:inline-block;animation:ufgira 1s linear infinite}
@@ -801,7 +805,7 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
       <p>Administración ING Estructural · proyectos, facturas, boletas de honorarios y resumen tributario</p>
     </div></div>
     <div class="toprt"><div class="hoy" id="hoyBox"><span id="hoyFecha"></span><span class="ufv">UF <b id="hoyUF">—</b></span><small id="hoyUFsrc"></small><button type="button" class="ufre" id="ufReload" title="Recargar la UF del día (mindicador.cl)" aria-label="Recargar UF del día"><span>↻</span></button></div>
-    <div class="who"><span class="i">Facturas · ING Estructural</span><span class="g">Boletas · Germán Aguilera</span></div>
+    <div class="who"><span class="i" title="Facturas · ING Estructural">Facturas</span><span class="g" title="Boletas de honorarios · Germán Aguilera">Boletas</span></div>
     <button type="button" class="acbtn" id="acBtn" hidden></button></div>
   </header>
   <div id="modeMsg" class="mode" hidden></div>
@@ -2651,7 +2655,7 @@ async function cargarUF(manual) {
   err = fuentes.filter(x => x.status === 'rejected').map(x => x.reason.message).join(' / ');
   if (ok.length) { S.ufHoy = {...ok[0], t: Date.now()}; syncUF(); S._ufOk = true; }
   const hora = new Date().toLocaleTimeString('es-CL', {hour: '2-digit', minute: '2-digit', hour12: false});
-  if (S._ufOk) { pintarHoy(P().ufRef, S.ufHoy.src, fdate(P().ufFecha) + ' · ' + hora); render();
+  if (S._ufOk) { pintarHoy(P().ufRef, 'mindicador.cl', fdate(P().ufFecha)); $('#hoyUFsrc').title = 'UF del día ' + fdate(P().ufFecha) + ' · fuente ' + S.ufHoy.src + ' · consultada a las ' + hora; render();
     if (manual) toast(P().ufRef === antes ? `UF confirmada: ${clp2(P().ufRef)} (${fdate(P().ufFecha)}), sin cambios` : `UF actualizada: ${clp2(P().ufRef)}`); }
   else { pintarHoy(P().ufRef, 'guardada', P().ufFecha ? fdate(P().ufFecha) : '');
     $('#hoyUFsrc').title = 'No se pudo consultar la UF del día: ' + err + '. Se usa la UF guardada en POWER.';
