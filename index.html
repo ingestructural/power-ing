@@ -1310,7 +1310,7 @@ async function start() {
   db.collection('cotizaciones').onSnapshot(snap => { S.cotizaciones = snap.docs.map(d => ({...d.data(), id: d.id})); render(); }, () => {});
   db.collection('config').onSnapshot(snap => {
     snap.docs.forEach(d => { if (d.id === 'params') S.params = {...DEF_PARAMS, ...d.data()}; else S.imp[d.id] = d.data(); });
-    S.loaded.config = true; syncUF(); render();
+    S.loaded.config = true; syncUF(); pintarUF(); render();
   }, e => toast('No se pudo leer la configuración: ' + e.code));
 }
 
@@ -2640,27 +2640,28 @@ function syncUF() {
   S.params = {...p, ufRef: u.valor, ufFecha: u.fecha, ufDocs: p.ufDocs || (p.ufFecha ? undefined : p.ufRef)};
   if (!LOCAL && db && S.loaded.config && !VISOR()) putConfig('params', S.params).catch(() => {});
 }
+function pintarUF() {   // encabezado: siempre la UF vigente (la del día si ya llegó; si no, la guardada en POWER)
+  if (S.ufHoy) { pintarHoy(P().ufRef, 'mindicador.cl', fdate(P().ufFecha)); $('#hoyUFsrc').title = 'UF del día ' + fdate(P().ufFecha) + ' · fuente ' + S.ufHoy.src + ' · consultada a las ' + new Date(S.ufHoy.t).toLocaleTimeString('es-CL', {hour: '2-digit', minute: '2-digit', hour12: false}); }
+  else pintarHoy(P().ufRef, 'guardada', P().ufFecha ? fdate(P().ufFecha) : '');
+}
 async function cargarUF(manual) {
   const btn = $('#ufReload'); if (btn) { if (btn.disabled) return; btn.disabled = true; }
-  if (!S.ufHoy) pintarHoy(P().ufRef, 'UF guardada', P().ufFecha ? fdate(P().ufFecha) : '');
-  const antes = P().ufRef; let err = '';
-  // dos fuentes en paralelo: mindicador.cl directo y uf.json (lo publica cada 3 h la acción «UF del día» del repositorio, mismo sitio de POWER); manda la de fecha más nueva
+  pintarUF();
+  const antes = P().ufRef;
+  // dos fuentes en paralelo: mindicador.cl directo y uf.json (lo publica cada 3 h la acción «UF del día» del repositorio, mismo sitio de POWER).
+  // Se aplica la primera que llega y luego cualquiera con fecha más nueva: no se espera a la más lenta.
   const conTope = (url, ms) => { const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), ms);
     return fetch(url, {signal: ctl.signal, cache: 'no-store'}).then(r => { clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .catch(e => { clearTimeout(to); throw new Error(e.name === 'AbortError' ? 'sin respuesta' : (e.message || String(e))); }); };
+  const aplica = x => { if (S.ufHoy && x.fecha < S.ufHoy.fecha) return; S.ufHoy = {...x, t: Date.now()}; syncUF(); pintarUF(); render(); };
   const fuentes = await Promise.allSettled([
-    conTope('https://mindicador.cl/api/uf', 12000).then(j => { const it = j && j.serie && j.serie[0]; if (!(it && it.valor)) throw new Error('sin datos'); return {valor: +it.valor, fecha: String(it.fecha).slice(0, 10), src: 'mindicador.cl'}; }),
-    conTope('./uf.json?t=' + Date.now(), 12000).then(j => { if (!(j && j.valor && j.fecha)) throw new Error('sin datos'); return {valor: +j.valor, fecha: String(j.fecha).slice(0, 10), src: 'mindicador.cl (vía POWER)'}; })]);
-  const ok = fuentes.filter(x => x.status === 'fulfilled').map(x => x.value).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  err = fuentes.filter(x => x.status === 'rejected').map(x => x.reason.message).join(' / ');
-  if (ok.length) { S.ufHoy = {...ok[0], t: Date.now()}; syncUF(); S._ufOk = true; }
-  const hora = new Date().toLocaleTimeString('es-CL', {hour: '2-digit', minute: '2-digit', hour12: false});
-  if (S._ufOk) { pintarHoy(P().ufRef, 'mindicador.cl', fdate(P().ufFecha)); $('#hoyUFsrc').title = 'UF del día ' + fdate(P().ufFecha) + ' · fuente ' + S.ufHoy.src + ' · consultada a las ' + hora; render();
-    if (manual) toast(P().ufRef === antes ? `UF confirmada: ${clp2(P().ufRef)} (${fdate(P().ufFecha)}), sin cambios` : `UF actualizada: ${clp2(P().ufRef)}`); }
-  else { pintarHoy(P().ufRef, 'guardada', P().ufFecha ? fdate(P().ufFecha) : '');
-    $('#hoyUFsrc').title = 'No se pudo consultar la UF del día: ' + err + '. Se usa la UF guardada en POWER.';
+    conTope('https://mindicador.cl/api/uf', 12000).then(j => { const it = j && j.serie && j.serie[0]; if (!(it && it.valor)) throw new Error('sin datos'); aplica({valor: +it.valor, fecha: String(it.fecha).slice(0, 10), src: 'mindicador.cl'}); }),
+    conTope('./uf.json?t=' + Date.now(), 12000).then(j => { if (!(j && j.valor && j.fecha)) throw new Error('sin datos'); aplica({valor: +j.valor, fecha: String(j.fecha).slice(0, 10), src: 'mindicador.cl vía POWER (uf.json)'}); })]);
+  const err = fuentes.filter(x => x.status === 'rejected').map(x => x.reason.message).join(' / ');
+  if (fuentes.some(x => x.status === 'fulfilled')) { if (manual) toast(P().ufRef === antes ? `UF confirmada: ${clp2(P().ufRef)} (${fdate(P().ufFecha)}), sin cambios` : `UF actualizada: ${clp2(P().ufRef)}`); }
+  else { pintarUF(); $('#hoyUFsrc').title = 'No se pudo consultar la UF del día: ' + err + '. Se usa la UF guardada en POWER.';
     if (manual) toast('No se pudo consultar la UF del día (' + err + '). Se mantiene la UF guardada.'); }
-  S._ufOk = false; if (btn) btn.disabled = false;
+  if (btn) btn.disabled = false;
 }
 document.addEventListener('click', e => { if (e.target.closest('#ufReload')) cargarUF(true); });
 // se mantiene al día: al volver a la ventana, si cambió el día o pasó más de 1 hora
