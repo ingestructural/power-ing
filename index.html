@@ -1561,10 +1561,6 @@ function vProyectos() {
     if (F.length) h += `<div class="alerta fac">📄 <b>${F.every(x=>x.p.documento==='B')?'EMITIR BOLETA':F.every(x=>x.p.documento==='F')?'FACTURAR':'FACTURAR / EMITIR BOLETA'}: ${F.length} proyecto${F.length===1?'':'s'} entregado${F.length===1?'':'s'}</b> — ${uf(F.reduce((a,x)=>a+x.c.fact,0))} UF por facturar: ${links(F)}</div>`;
     const OD = S.proyectos.filter(p => odcPend(p)).map(p => ({p}));
     if (OD.length) h += `<div class="alerta odc">📋 <b>SOLICITAR ODC: ${OD.length} proyecto${OD.length===1?'':'s'}</b> — pedir al cliente la orden de compra: ${links(OD)}</div>`;
-    if (HS.length) h += `<div class="alerta hes">📋 <b>SOLICITAR HES/WE/HAS: ${HS.length} proyecto${HS.length===1?'':'s'}</b> — pedir al cliente las referencias para facturar: ${links(HS)}</div>`;
-    const PG = S.proyectos.map(p => { const m = proyMetrics(p); return {p, m, t: pagarTerc(p, m)}; }).filter(x => x.t);
-    if (PG.length) h += `<div class="alerta pag">🟠 <b>PAGAR A TERCEROS: ${PG.length} proyecto${PG.length===1?'':'s'} ya cobrado${PG.length===1?'':'s'}</b> — ${uf(PG.reduce((a,x)=>a+x.m.tercPendUF,0))} UF (${clp(PG.reduce((a,x)=>a+x.m.tercPendCLP,0))}) que no son tuyos: ${links(PG)}</div>`;
-    if (C.length) h += `<div class="alerta cob">💲 <b>COBRAR: ${C.length} proyecto${C.length===1?'':'s'} con factura o boleta emitida</b> — ${clp(C.reduce((a,x)=>a+x.c.pag,0))} por cobrar: ${links(C)}</div>`;
     return h; })()}
   <p class="small muted">${S.proyectos.length} registrados · ${canc.length} cancelados (${uf(canc.reduce((s,p)=>s+(p.montoUF||0),0))} UF). Haga clic en una fila para editarla.</p>
   ${resumenEstados()}
