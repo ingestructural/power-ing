@@ -1,0 +1,35 @@
+# UF del día para POWER y el Cotizador: se consulta desde GitHub (sin depender del navegador) y se publica en uf.json
+name: UF del día
+on:
+  schedule:
+    - cron: '7 */3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: uf
+jobs:
+  uf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consultar mindicador.cl
+        run: |
+          set -e
+          curl -sSf --retry 4 --retry-delay 10 -m 30 https://mindicador.cl/api/uf -o /tmp/uf.json
+          python3 - <<'PY'
+          import json, datetime
+          j = json.load(open('/tmp/uf.json')); s = j['serie'][0]
+          v = float(s['valor']); f = s['fecha'][:10]
+          assert 20000 < v < 100000, v
+          try: old = json.load(open('uf.json'))
+          except Exception: old = {}
+          if old.get('valor') == v and old.get('fecha') == f: print('sin cambios', f, v); raise SystemExit
+          json.dump({'valor': v, 'fecha': f, 'fuente': 'mindicador.cl', 'consultado': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ')}, open('uf.json', 'w'))
+          print('UF', f, v)
+          PY
+      - name: Guardar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uf.json
+          git diff --cached --quiet || (git commit -m "UF del día $(python3 -c "import json;d=json.load(open('uf.json'));print(d['fecha'],d['valor'])")" && git push)
