@@ -1561,14 +1561,6 @@ function vProyectos() {
     <button class="btn ghost" data-act="resumenProy" title="Resumen de proyectos (montos y estado) para ver o imprimir">🖨 Resumen</button>
     <button class="btn ghost" data-act="csv" data-what="proyectos">Exportar CSV</button>
   </div>
-  ${(() => { const L = S.proyectos.map(p => ({p, c: cobroPend(p, proyMetrics(p))})).filter(x => x.c);
-    const F = L.filter(x => x.c.tipo === 'fact'), C = L.filter(x => x.c.tipo === 'cob'), HS = L.filter(x => x.c.tipo === 'hes');
-    const links = A => A.map(x => `<button class="alink" data-edit="proyectos" data-id="${x.p.id}">${esc(x.p.codigo)}</button>`).join(' ');
-    let h = '';
-    if (F.length) h += `<div class="alerta fac">📄 <b>${F.every(x=>x.p.documento==='B')?'EMITIR BOLETA':F.every(x=>x.p.documento==='F')?'FACTURAR':'FACTURAR / EMITIR BOLETA'}: ${F.length} proyecto${F.length===1?'':'s'} entregado${F.length===1?'':'s'}</b> — ${uf(F.reduce((a,x)=>a+x.c.fact,0))} UF por facturar: ${links(F)}</div>`;
-    const OD = S.proyectos.filter(p => odcPend(p)).map(p => ({p}));
-    if (OD.length) h += `<div class="alerta odc">📋 <b>SOLICITAR ODC: ${OD.length} proyecto${OD.length===1?'':'s'}</b> — pedir al cliente la orden de compra: ${links(OD)}</div>`;
-    return h; })()}
   <p class="small muted">${S.proyectos.length} registrados · ${canc.length} cancelados (${uf(canc.reduce((s,p)=>s+(p.montoUF||0),0))} UF). Haga clic en una fila para editarla.</p>
   ${resumenEstados()}
   ${rows.length ? `<div class="pcards">${rows.map(cardProy).join('')}</div><div class="tbl wide"><table>
