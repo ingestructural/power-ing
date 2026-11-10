@@ -1406,17 +1406,13 @@ function estTinta(hex) { const n = parseInt(hex.slice(1), 16), L = c => { c /= 2
   const Y = 0.2126 * L(n >> 16 & 255) + 0.7152 * L(n >> 8 & 255) + 0.0722 * L(n & 255); return (1.05 / (Y + 0.05)) >= ((Y + 0.05) / 0.05) ? '#ffffff' : '#111111'; }
 (function () {
   let css = '';
+  // Filas y tarjetas: todas con el fondo celeste tenue de los cuadros de resumen; solo la etiqueta del estado lleva el color del estado
+  css += `table tbody tr[class*="st-"] td{background:var(--kpi-bg)!important;color:var(--kpi-val)!important} table tbody tr[class*="st-"]:hover td{background:color-mix(in srgb,var(--kpi-bg) 85%,var(--kpi-top))!important}`;
+  css += `table tbody tr[class*="st-"] td{border-bottom:1px solid var(--kpi-bd)!important}`;
+  css += `.pcard[class*="st-"]{background:var(--kpi-bg)!important;color:var(--kpi-val)!important;border-left:1px solid var(--kpi-bd)!important}`;
   Object.values(EST_COLOR).forEach(({c, k}) => {
-    const t = estTinta(c), osc = t === '#ffffff', borde = c === '#FFFFFF' ? '#BFBFBF' : c;
-    // fila de la tabla (todas las celdas, incluidas las columnas de montos que tienen color propio)
-    css += `table tbody tr.st-${k} td{background:${c}!important;color:${t}!important} table tbody tr.st-${k}:hover td{background:color-mix(in srgb,${c} 88%,${osc ? '#ffffff' : '#000000'})!important}`;
-    css += `table tbody tr.st-${k} td *:not(.pill):not(.cobrar):not(.cobrar *):not(.pbar):not(.pbar *){color:inherit!important} table tbody tr.st-${k} td:first-child{box-shadow:inset 5px 0 0 ${borde}}`;
-    css += `table tbody tr.st-${k} .pbar{background:${osc ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.18)'}} table tbody tr.st-${k} .pbar i{background:${t}}`;
-    // tarjeta del celular
-    css += `.pcard.st-${k}{background:${c}!important;color:${t}!important;border-left:6px solid ${borde}!important} .pcard.st-${k} *:not(.pill):not(.cobrar):not(.cobrar *){color:inherit!important}`;
-    // pastilla: color pleno en el resumen; dentro de la fila (mismo fondo) se invierte para que se distinga
+    const t = estTinta(c);
     css += `.pill.st-${k}{background:${c}!important;color:${t}!important;font-weight:700;border:1px solid ${c === '#FFFFFF' ? '#9CA3AF' : 'rgba(0,0,0,.15)'}!important}`;
-    css += `table tbody tr.st-${k} .pill.st-${k},.pcard.st-${k} .pill.st-${k}{background:${osc ? '#ffffff' : '#111111'}!important;color:${osc ? c : (c === '#FFFFFF' ? '#ffffff' : c)}!important;border:1px solid ${t}!important}`;
   });
   const st = document.createElement('style'); st.id = 'estColores'; st.textContent = css; document.head.appendChild(st);
 })();
