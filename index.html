@@ -604,6 +604,8 @@ td.mand{font-weight:800;color:var(--logo1);letter-spacing:.02em}
 .hoy .ufv{font-family:var(--ff-d);font-weight:700;color:var(--logo1);background:color-mix(in srgb,var(--logo2) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--logo2) 40%,transparent);border-radius:4px;padding:2px 8px}
 .hoy .ufv b{font-family:var(--ff-m);font-size:1rem}
 .hoy small{font-size:.68rem}
+.hoy .ufre{border:1px solid var(--line);background:var(--panel);color:var(--logo1);border-radius:4px;padding:0 7px;font-size:.9rem;line-height:1.5;cursor:pointer}
+.hoy .ufre:disabled{opacity:.5;cursor:wait}
 .topact{position:sticky;top:calc(-18px - env(safe-area-inset-top,0px));z-index:5;background:var(--panel);margin:calc(-18px - env(safe-area-inset-top,0px)) -18px 10px;padding:calc(12px + env(safe-area-inset-top,0px)) 18px 8px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 4px 8px -6px rgba(0,0,0,.25)}
 .topact .err{margin:0;min-height:0}
 .p-fac{background:color-mix(in srgb,#0060c1 16%,var(--panel));color:#0060c1;border:1px solid color-mix(in srgb,#0060c1 40%,transparent)}
@@ -796,7 +798,7 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
       <h1>POWER</h1>
       <p>Administración ING Estructural · proyectos, facturas, boletas de honorarios y resumen tributario</p>
     </div></div>
-    <div class="toprt"><div class="hoy" id="hoyBox"><span id="hoyFecha"></span><span class="ufv">UF <b id="hoyUF">—</b></span><small id="hoyUFsrc"></small></div>
+    <div class="toprt"><div class="hoy" id="hoyBox"><span id="hoyFecha"></span><span class="ufv">UF <b id="hoyUF">—</b></span><small id="hoyUFsrc"></small><button type="button" class="ufre" id="ufReload" title="Recargar la UF del día (mindicador.cl)" aria-label="Recargar UF del día">↻</button></div>
     <div class="who"><span class="i">Facturas · ING Estructural</span><span class="g">Boletas · Germán Aguilera</span></div>
     <button type="button" class="acbtn" id="acBtn" hidden></button></div>
   </header>
@@ -1302,15 +1304,17 @@ async function start() {
   db.collection('cotizaciones').onSnapshot(snap => { S.cotizaciones = snap.docs.map(d => ({...d.data(), id: d.id})); render(); }, () => {});
   db.collection('config').onSnapshot(snap => {
     snap.docs.forEach(d => { if (d.id === 'params') S.params = {...DEF_PARAMS, ...d.data()}; else S.imp[d.id] = d.data(); });
-    S.loaded.config = true; render();
+    S.loaded.config = true; syncUF(); render();
   }, e => toast('No se pudo leer la configuración: ' + e.code));
 }
 
 /* ------------------------------------------------------------------ cálculos */
 const P = () => S.params;
+// facturas y boletas antiguas sin valor UF propio: siguen con la UF fija que tenían antes de pasar a la UF del día (ufDocs); las nuevas guardan la UF del día al emitirse
+const ufDoc = () => P().ufDocs || P().ufRef;
 function rateFor(y) { const r = P().rates || {}; const ys = Object.keys(r).map(Number).sort((a,b)=>a-b); if (!ys.length) return 0.1525; if (r[y] != null) return r[y]; return y > ys[ys.length-1] ? r[ys[ys.length-1]] : r[ys[0]]; }
-function calcFactura(f) { const v = f.valorUF || P().ufRef; const total = Math.round((f.montoUF || 0) * v); const neto = Math.round(total / (1 + P().iva)); return {total, neto, iva: total - neto, v}; }
-function calcBoleta(b) { const v = b.valorUF || P().ufRef; const total = Math.round((b.montoUF || 0) * v); const y = +(b.fecha || today()).slice(0, 4); const r = rateFor(y); const ret = Math.round(total * r); return {total, ret, liq: total - ret, r, v}; }
+function calcFactura(f) { const v = f.valorUF || ufDoc(); const total = Math.round((f.montoUF || 0) * v); const neto = Math.round(total / (1 + P().iva)); return {total, neto, iva: total - neto, v}; }
+function calcBoleta(b) { const v = b.valorUF || ufDoc(); const total = Math.round((b.montoUF || 0) * v); const y = +(b.fecha || today()).slice(0, 4); const r = rateFor(y); const ret = Math.round(total * r); return {total, ret, liq: total - ret, r, v}; }
 function sigla(nombre) {
   const c = S.clientes.find(x => x.nombre === nombre);
   if (c && c.siglaManual) return c.siglaManual.toUpperCase().slice(0, 3);
@@ -1332,7 +1336,7 @@ function proyMetrics(p) {
   const totDoc = fs.reduce((s, f) => s + calcFactura(f).total, 0) + bs.reduce((s, b) => s + calcBoleta(b).total, 0);
   const pagado = fs.filter(f => f.estado === 'Pagada').reduce((s, f) => s + calcFactura(f).total, 0) + bs.filter(b => b.estado === 'Pagada').reduce((s, b) => s + calcBoleta(b).total, 0);
   const porFacturar = p.estado === 'Cancelado' ? 0 : (p.montoUF || 0) - facturadoUF;
-  const T = tercerosDe(p), vUF = p.valorUF || P().ufRef;
+  const T = tercerosDe(p), vUF = P().ufRef;
   return {facturadoUF, porFacturar, pctF: p.montoUF ? facturadoUF / p.montoUF : null, pagado, porPagar: totDoc - pagado, totalCLP: Math.round((p.montoUF||0) * vUF),
     tercUF: T.uf, tercPendUF: T.pendUF, tercPendCLP: Math.round(T.pendUF * vUF), propioUF: T.propioUF, propioCLP: Math.round(T.propioUF * vUF), tercPendList: T.pendList, tercCostoNetoUF: T.costoNetoUF};
 }
@@ -1437,7 +1441,7 @@ function renderKpis() {
   const bCob = S.boletas.filter(b => !['Anulada','Pagada'].includes(b.estado)).reduce((s, b) => s + calcBoleta(b).liq, 0);
   const ADJ = ['Solicitar ODC','En ejecución','Solicitar HES/WE/HAS','Facturar','Facturado',EST_ST];
   let ingF = 0, ingB = 0, nF = 0, nB = 0, ufIng = 0, propioIng = 0;
-  S.proyectos.filter(p => ADJ.includes(p.estado)).forEach(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const falta = Math.max(m.totalCLP - m.pagado, 0);
+  S.proyectos.filter(p => ADJ.includes(p.estado)).forEach(p => { const m = proyMetrics(p); const v = P().ufRef; const falta = Math.max(m.totalCLP - m.pagado, 0);
     if (falta <= 0) return; ufIng += falta / v; if (p.documento === 'B') { ingB += falta; nB++; } else { ingF += falta; nF++; }
     const tc = Math.round((m.tercCostoNetoUF || 0) * v) - Math.round(((p.terceros||[]).filter(t => t.estado === 'Pagado' && (t.montoUF||0) > 0).reduce((a, t) => a + (p.documento === 'F' && t.doc === 'F' ? t.montoUF / (1 + P().iva) : t.montoUF), 0)) * v);
     propioIng += (p.documento === 'F' ? falta / (1 + P().iva) : falta * (1 - rateFor(y))) - Math.max(0, tc); });
@@ -1610,7 +1614,7 @@ function docList(kind) {
     if (d.estado !== 'Anulada') { tot.u += d.montoUF||0; tot.a += isF ? k.neto : k.liq; tot.b += isF ? k.iva : k.ret; tot.c += k.total; }
     return `<tr class="click ${d.estado==='Anulada'?'cancel':''}" data-edit="${kind}" data-id="${d.id}"><td>${fdate(d.fecha)}</td><td class="code">${esc(d.numero)}</td>
       <td>${p ? `<span class="code small">${esc(p.codigo)}</span> ${esc(projName(p))}` : '<span class="muted">(sin proyecto)</span>'}</td><td>${esc(mandanteDe(d))}</td><td>${esc(d.glosa||'')}${d.tipoCobro && d.tipoCobro!=='Total' ? ` <span class="muted small">(${esc(d.tipoCobro)})</span>` : ''}</td>
-      <td class="n">${uf(d.montoUF)}</td><td class="n">${d.valorUF ? uf(d.valorUF) : `<span class="muted" title="UF de referencia">${uf(P().ufRef)}*</span>`}</td>
+      <td class="n">${uf(d.montoUF)}</td><td class="n">${d.valorUF ? uf(d.valorUF) : `<span class="muted" title="Sin valor UF propio: UF fija anterior">${uf(ufDoc())}*</span>`}</td>
       <td class="n">${clp(isF?k.neto:k.liq)}</td><td class="n">${clp(isF?k.iva:k.ret)}</td><td class="n">${clp(k.total)}</td><td class="keep">${pillEstado(d.estado)}</td><td>${fdate(d.fechaPago)}</td>${isF?'':`<td>${esc(d.retiene||'Receptor')}</td>`}</tr>`; }).join('');
   return `
   <div class="bar">
@@ -1638,7 +1642,7 @@ function cobroDe(p, m) {
 }
 function vCartera() {
   const q = S.q.toLowerCase(), cli = S.resCli || 'Todos';
-  const all = S.proyectos.map(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; const docCLP = m.pagado + m.porPagar;
+  const all = S.proyectos.map(p => { const m = proyMetrics(p); const v = P().ufRef; const docCLP = m.pagado + m.porPagar;
     return {p, m, v, docCLP, pfCLP: Math.round(Math.max(m.porFacturar, 0) * v), cobro: cobroDe(p, m)}; });
   const ep = r => ordEst(r.p.estado, r.p.oc);
   let rows = all.slice().sort((a, b) => (ep(a) - ep(b)) || a.p.mandante.localeCompare(b.p.mandante) || (b.p.anio - a.p.anio) || ((b.p.nGen||0) - (a.p.nGen||0)));
@@ -1925,11 +1929,11 @@ function vParametros() {
   const f = (id, v, step) => `<input id="${id}" data-par="${id}" value="${v}" inputmode="decimal">`;
   return `<div class="two"><div><h2>Valores generales</h2><div class="kv">
     <div>Tasa de IVA (fracción, 0,19 = 19%)</div><div class="v">${f('iva', p.iva)}</div>
-    <div>Valor UF de referencia ($)</div><div class="v">${f('ufRef', p.ufRef)}</div>
+    <div>Valor UF del día ($)</div><div class="v"><b>${clp2(p.ufRef)}</b>${p.ufFecha ? ` <span class="small muted">al ${fdate(p.ufFecha)}</span>` : ''}</div>
     <div>Valor UTA para el cálculo anual ($)</div><div class="v">${f('uta', p.uta)}</div>
     <div>Gastos presuntos honorarios (fracción)</div><div class="v">${f('gp', p.gp)}</div>
     <div>Tope gastos presuntos (UTA)</div><div class="v">${f('gpTope', p.gpTope)}</div></div>
-    <p class="note">UF de referencia: se usa cuando un documento no tiene valor UF propio (UF al 28-09-2026: $41.040,82). UTA diciembre 2025: $834.504 (rentas 2025); para las rentas de 2026 use la UTA de diciembre 2026.</p></div>
+    <p class="note">UF del día: es la única UF de POWER y del Cotizador. Se actualiza sola desde mindicador.cl al abrir POWER (y con ↻ en el encabezado); queda guardada con su fecha y se usa en proyectos, cotizaciones y en facturas o boletas sin valor UF propio. UTA diciembre 2025: $834.504 (rentas 2025); para las rentas de 2026 use la UTA de diciembre 2026.</p></div>
     <div><h2>Retención de boletas por año</h2><div class="kv">${ys.map(y => `<div>${y}</div><div class="v"><input id="rt-${y}" data-rate="${y}" value="${p.rates[y]}" inputmode="decimal"></div>`).join('')}</div>
     <p class="note">Fuente: SII, aumento gradual de la retención (Ley 21.133): 0,75 puntos por año hasta 17% en 2028. Años posteriores usan la última tasa.</p>
     <h2 style="margin-top:16px">Tabla IGC (tramos en UTA)</h2><div class="tbl"><table><thead><tr><th class="n">Desde (UTA)</th><th class="n">Factor</th><th class="n">Rebaja (UTA)</th><th class="n">Desde ($)</th></tr></thead><tbody>${p.igc.map(r=>`<tr><td class="n">${r[0]}</td><td class="n">${pct(r[1])}</td><td class="n">${r[2]}</td><td class="n">${clp(r[0]*p.uta)}</td></tr>`).join('')}</tbody></table></div></div></div>
@@ -2064,7 +2068,6 @@ function openEditor(kind, id, preProy, pre) {
       <label>Contacto<input id="e-contacto" value="${esc(TITLE(r.contacto||''))}"></label>
       <label>Documento<select id="e-documento"><option value="F" ${r.documento==='F'?'selected':''}>Factura ING Estructural</option><option value="B" ${r.documento==='B'?'selected':''}>Boleta Germán Aguilera</option></select></label>
       <label>Monto total (UF)<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required>${rec && rec._cot ? `<span class="small muted">Valor de la cotización ${esc(rec._cot.numero || '')}${rec._cot.rev ? ' Rev. ' + esc(rec._cot.rev) : ''} (${rec.documento === 'B' ? 'boleta, bruto' : 'factura, con IVA'}). Sigue a la cotización mientras no lo cambie; si escribe otro monto, queda fijo.</span>` : '<span class="small muted">Con 0 se toma el valor de la cotización del proyecto.</span>'}</label>
-      <label>Valor UF ($, opcional)<input id="e-valorUF" inputmode="decimal" value="${r.valorUF ?? ''}" placeholder="${uf(P().ufRef)}"></label>
       <label>Fecha de entrega comprometida<input id="e-entrega" type="date" value="${r.entrega||''}"></label>
       <label>Estado del proyecto<select id="e-estado">${ESTADOS_PROY.map(e=>`<option value="${e}" ${e===r.estado?'selected':''}>${estadoTxt(e, r.documento)}</option>`).join('')}</select></label>
       <label id="w-fc">Fecha de cancelación<input id="e-fechaCancel" type="date" value="${r.fechaCancel||''}"></label>
@@ -2102,7 +2105,7 @@ function openEditor(kind, id, preProy, pre) {
       ${isF ? '' : `<label>Ingresar monto en<select id="e-moneda"><option value="UF" ${r.ingreso !== 'CLP' ? 'selected' : ''}>UF</option><option value="CLP" ${r.ingreso === 'CLP' ? 'selected' : ''}>$ (pesos)</option></select></label>
       <label id="clpBox" ${r.ingreso === 'CLP' ? '' : 'hidden'}>Monto bruto ($)<input id="e-montoCLP" inputmode="decimal" value="${r.montoCLP != null ? String(r.montoCLP) : ''}" placeholder="ej. 2.500.000"></label>`}
       <label>${isF?'Monto total con IVA (UF)':'Monto bruto (UF)'}<input id="e-montoUF" inputmode="decimal" value="${r.montoUF ?? ''}" required></label>
-      <label>Valor UF del día ($)<input id="e-valorUF" inputmode="decimal" value="${r.valorUF ?? ''}" placeholder="${uf(P().ufRef)} (referencia)"></label>
+      <label>Valor UF del día ($)<input id="e-valorUF" inputmode="decimal" value="${r.valorUF ?? ''}" placeholder="${uf(P().ufRef)} (UF del día)"></label>
       <label>Estado de pago<select id="e-estado">${ESTADOS_DOC.map(e=>`<option ${e===r.estado?'selected':''}>${e}</option>`).join('')}</select></label>
       <label>Fecha de pago<input id="e-fechaPago" type="date" value="${r.fechaPago||''}"></label>
       ${isF ? '' : `<label class="full">Retención a cargo de<select id="e-retiene"><option ${r.retiene!=='Emisor'?'selected':''}>Receptor</option><option ${r.retiene==='Emisor'?'selected':''}>Emisor</option></select></label>`}
@@ -2142,7 +2145,7 @@ function openEditor(kind, id, preProy, pre) {
    Se arma con los valores actuales del formulario (aunque aún no se haya guardado). */
 function docDatos(kind) {
   const isF = kind === 'facturas', p = proyById(val('proyectoId'));
-  const d = {montoUF: numIn(val('montoUF')) || 0, valorUF: numIn(val('valorUF')), fecha: val('fecha')};
+  const d = {montoUF: numIn(val('montoUF')) || 0, valorUF: numIn(val('valorUF')) || (document.getElementById('bDel') ? null : P().ufRef), fecha: val('fecha')};   // documento nuevo: UF del día
   const k = isF ? calcFactura(d) : calcBoleta(d);
   return {isF, p, k, d, numero: val('numero'), fecha: val('fecha'), glosa: (val('glosa') || '').trim() || (p ? projName(p) : ''), tipo: val('tipoCobro'), pctv: p && p.montoUF > 0 && d.montoUF > 0 ? (d.montoUF/p.montoUF*100).toLocaleString('es-CL', {maximumFractionDigits: 1}) : '',
     estado: val('estado'), fechaPago: val('fechaPago'), retiene: val('retiene'), obs: (val('obs') || '').trim()};
@@ -2152,7 +2155,7 @@ function docDatos(kind) {
 function resumenProyectos() {
   const rows = (S._rowsP || S.proyectos).filter(p => p.estado !== 'Cancelado' || S.fEstado === 'Cancelado');
   const iva = P().iva;
-  const L = rows.map(p => { const v = p.valorUF || P().ufRef, tot = Math.round((p.montoUF || 0) * v);
+  const L = rows.map(p => { const v = P().ufRef, tot = Math.round((p.montoUF || 0) * v);
     if (p.documento === 'F') { const neto = Math.round(tot / (1 + iva)); return {p, a: neto, b: tot}; }
     const r = rateFor(+p.anio || +(today().slice(0, 4))); return {p, a: tot, b: tot - Math.round(tot * r)}; });
   const sum = (arr, k) => arr.reduce((x, y) => x + y[k], 0);
@@ -2480,10 +2483,10 @@ function updateCalc(kind, rec) {
     { const isNew = val('mandante') === '__new'; const wn = $('#w-newcli'); if (wn) wn.hidden = !isNew;
       const man = mandanteSel(), an = +val('anio'); const pc = $('#prevCode');
       if (pc) pc.textContent = !rec ? (man && an ? nextCodigo(man, an).codigo : '(elija mandante)') : (man === rec.mandante && an === rec.anio ? rec.codigo + ' (sin cambio)' : (man && an ? rec.codigo + ' → ' + nextCodigo(man, an, rec.id, an === rec.anio ? rec.nGen : 0).codigo : '')); }
-    box.innerHTML = `<span>Monto total ($)</span><span>${m==null?'—':clp(m*(v||P().ufRef))}</span>${rec ? (() => { const mm = proyMetrics({...rec, estado: val('estado')}); return `<span>Facturado (UF)</span><span>${uf(mm.facturadoUF)}</span><span>Por facturar (UF)</span><span>${uf(mm.porFacturar)}</span><span>Status: pagado</span><span>${clp(mm.pagado)}</span><span>Status: por pagar</span><span>${clp(mm.porPagar)}</span>`; })() : ''}`;
+    box.innerHTML = `<span>Monto total ($)</span><span>${m==null?'—':clp(m*P().ufRef)}</span>${rec ? (() => { const mm = proyMetrics({...rec, estado: val('estado')}); return `<span>Facturado (UF)</span><span>${uf(mm.facturadoUF)}</span><span>Por facturar (UF)</span><span>${uf(mm.porFacturar)}</span><span>Status: pagado</span><span>${clp(mm.pagado)}</span><span>Status: por pagar</span><span>${clp(mm.porPagar)}</span>`; })() : ''}`;
     return;
   }
-  const d = {montoUF: m || 0, valorUF: v, fecha: val('fecha')};
+  const d = {montoUF: m || 0, valorUF: v || (rec ? null : P().ufRef), fecha: val('fecha')};
   const pSel = proyById(val('proyectoId')), over = pSel && m != null ? m - saldoProy(pSel, rec).sal : 0;
   const warnOver = over > 0.005 ? `<span class="warn" style="grid-column:1/-1">Excede el saldo por facturar en ${uf(over)} UF</span>` : '';
   if (kind === 'facturas') { const k = calcFactura(d); box.innerHTML = `<span>Valor UF usado</span><span>${uf(k.v)}</span><span>Monto neto</span><span>${clp(k.neto)}</span><span>IVA (${pct(P().iva)})</span><span>${clp(k.iva)}</span><span>Monto total</span><span>${clp(k.total)}</span>${warnOver}`; }
@@ -2518,7 +2521,7 @@ async function save(kind, rec) {
       // monto y documento tomados de la cotización y no cambiados: se guarda lo escrito a mano (0) para que siga a la cotización
       const sigueCot = rec && rec._cot && Math.abs((m || 0) - rec.montoUF) < 0.005 && val('documento') === rec.documento;
       const base = {mandante, anio, oc: val('oc').trim(), hes: val('hes').trim(), has: val('has').trim(), we: val('we').trim(), ocFecha: val('ocFecha') || '', hesFecha: val('hesFecha') || '', hasFecha: val('hasFecha') || '', weFecha: val('weFecha') || '', planta: UP((val('planta')||'').trim()), carpetaRuta: (val('carpetaRuta')||'').trim(), proyecto: UP(val('proyecto').trim().replace(/\s+/g, ' ')), descripcion: '', contacto: TITLE(val('contacto').trim()), documento: sigueCot ? rec._orig.documento : val('documento'),
-        montoUF: sigueCot ? rec._orig.montoUF : m, valorUF: v, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
+        montoUF: sigueCot ? rec._orig.montoUF : m, entrega: val('entrega'), estado, fechaCancel: estado==='Cancelado' ? val('fechaCancel') : '', motivoCancel: estado==='Cancelado' ? val('motivoCancel') : '', obs: val('obs')};
       if (S.proyectos.some(p => projName(p) === base.proyecto && (!rec || p.id !== rec.id))) return err.textContent = 'Ya existe un proyecto con ese nombre.';
       base.creado = val('creado') || (rec ? rec.creado || '' : today());
       base.terceros = leerTerceros();
@@ -2542,7 +2545,7 @@ async function save(kind, rec) {
       if (!numero) return err.textContent = 'Ingrese el número del documento.';
       if (m == null) return err.textContent = 'Ingrese el monto en UF.';
       if (S[kind].some(d => +d.numero === numero && (!rec || d.id !== rec.id))) return err.textContent = 'Ese número ya está registrado.';
-      const data = {fecha, numero, proyectoId: val('proyectoId'), glosa: val('glosa').trim(), tipoCobro: val('tipoCobro'), montoUF: m, valorUF: v, estado: val('estado'), fechaPago: val('fechaPago'), obs: val('obs')};
+      const data = {fecha, numero, proyectoId: val('proyectoId'), glosa: val('glosa').trim(), tipoCobro: val('tipoCobro'), montoUF: m, valorUF: v || (rec ? null : P().ufRef), estado: val('estado'), fechaPago: val('fechaPago'), obs: val('obs')};
       if (kind === 'boletas') { data.retiene = val('retiene');
         if (val('moneda') === 'CLP') { const c = (d => d ? +d : null)(String(val('montoCLP') || '').replace(/[^\d]/g, '')); if (c == null) return err.textContent = 'Ingrese el monto bruto en $.'; const vv = v || P().ufRef; data.ingreso = 'CLP'; data.montoCLP = Math.round(c); data.valorUF = vv; data.montoUF = c / vv; }
         else { data.ingreso = 'UF'; data.montoCLP = null; } }
@@ -2576,7 +2579,7 @@ function buildCSV(what) {
   else if (what === 'boletas') { rows.push(['Fecha','N°','Código proyecto','Proyecto','Mandante','Bruto UF','Valor UF','Líquido $','Retención $','Bruto $','Tasa','Estado','Fecha pago','Retiene','Observaciones']);
     S.boletas.forEach(b => { const k = calcBoleta(b), p = proyById(b.proyectoId); rows.push([b.fecha,b.numero,p?.codigo,p?.proyecto,mandanteDe(b),b.montoUF,k.v,k.liq,k.ret,k.total,k.r,b.estado,b.fechaPago,b.retiene,b.obs]); }); }
   else if (what === 'cartera') { rows.push(['Código','Mandante','Proyecto','Documento','Estado proyecto','Monto UF','Monto $','Documentado UF','Documentado $','Pagado $','Pendiente de pago $','Por facturar UF','Por facturar $','Status de cobro']);
-    S.proyectos.forEach(p => { const m = proyMetrics(p); const v = p.valorUF || P().ufRef; rows.push([p.codigo,p.mandante,p.proyecto,p.documento==='F'?'Factura ING Estructural':'Boleta Germán Aguilera',p.estado,p.montoUF,m.totalCLP,m.facturadoUF,m.pagado+m.porPagar,m.pagado,m.porPagar,Math.max(m.porFacturar,0),Math.round(Math.max(m.porFacturar,0)*v),cobroDe(p,m)]); }); }
+    S.proyectos.forEach(p => { const m = proyMetrics(p); const v = P().ufRef; rows.push([p.codigo,p.mandante,p.proyecto,p.documento==='F'?'Factura ING Estructural':'Boleta Germán Aguilera',p.estado,p.montoUF,m.totalCLP,m.facturadoUF,m.pagado+m.porPagar,m.pagado,m.porPagar,Math.max(m.porFacturar,0),Math.round(Math.max(m.porFacturar,0)*v),cobroDe(p,m)]); }); }
   else if (what === 'clientes') { rows.push(['Empresa mandante','RUT','Sigla']); S.clientes.forEach(c => rows.push([c.nombre, c.rut || '', sigla(c.nombre)])); }
   return '﻿' + rows.map(r => r.map(x => typeof x === 'number' ? String(x).replace('.', ',') : q(x)).join(sep)).join('\r\n');
 }
@@ -2622,15 +2625,32 @@ function pintarHoy(v, src, fechaUF) {
   $('#hoyUFsrc').textContent = src + (fechaUF ? ' · ' + fechaUF : '');
 }
 const clp2 = n => '$' + Number(n).toLocaleString('es-CL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-async function cargarUF() {
-  pintarHoy(P().ufRef, 'UF de referencia (Parámetros)');
+/* Una sola UF: la UF del día (mindicador.cl). Se guarda en Parámetros (ufRef + ufFecha) para que todo POWER y el Cotizador usen la misma. */
+const hoyCL = () => new Date().toLocaleDateString('sv-SE', {timeZone: 'America/Santiago'});
+function syncUF() {
+  const u = S.ufHoy; if (!u) return;
+  const p = P(); if (p.ufRef === u.valor && p.ufFecha === u.fecha) return;
+  if (p.ufFecha && p.ufFecha > u.fecha) return;   // ya hay una UF más nueva guardada
+  S.params = {...p, ufRef: u.valor, ufFecha: u.fecha, ufDocs: p.ufDocs || (p.ufFecha ? undefined : p.ufRef)};
+  if (!LOCAL && db && S.loaded.config && !VISOR()) putConfig('params', S.params).catch(() => {});
+}
+async function cargarUF(manual) {
+  const btn = $('#ufReload'); if (btn) btn.disabled = true;
+  if (!S.ufHoy) pintarHoy(P().ufRef, 'UF guardada', P().ufFecha ? fdate(P().ufFecha) : '');
   try {
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch('https://mindicador.cl/api/uf', {signal: ctl.signal}); clearTimeout(to);
+    const r = await fetch('https://mindicador.cl/api/uf', {signal: ctl.signal, cache: 'no-store'}); clearTimeout(to);
     const j = await r.json(); const it = j && j.serie && j.serie[0];
-    if (it && it.valor) { S.ufHoy = it.valor; pintarHoy(it.valor, 'UF del día · mindicador.cl', new Date(it.fecha).toLocaleDateString('es-CL')); }
-  } catch (e) { /* sin conexión o bloqueado: queda la UF de referencia */ }
+    if (it && it.valor) { S.ufHoy = {valor: +it.valor, fecha: String(it.fecha).slice(0, 10), t: Date.now()}; syncUF();
+      pintarHoy(P().ufRef, 'UF del día · mindicador.cl', fdate(P().ufFecha)); render(); if (manual) toast('UF actualizada: ' + clp2(P().ufRef)); }
+    else throw new Error('sin datos');
+  } catch (e) { pintarHoy(P().ufRef, 'UF guardada (sin conexión a mindicador.cl)', P().ufFecha ? fdate(P().ufFecha) : ''); if (manual) toast('No se pudo consultar la UF del día'); }
+  finally { if (btn) btn.disabled = false; }
 }
+document.addEventListener('click', e => { if (e.target.closest('#ufReload')) cargarUF(true); });
+// se mantiene al día: al volver a la ventana, si cambió el día o pasó más de 1 hora
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (!S.ufHoy || Date.now() - S.ufHoy.t > 3600e3 || S.ufHoy.fecha !== hoyCL())) cargarUF(); });
+setInterval(() => { if (S.ufHoy && S.ufHoy.fecha !== hoyCL()) cargarUF(); }, 15 * 60e3);
 render();
 start();
 cargarUF();
