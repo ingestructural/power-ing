@@ -806,6 +806,11 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
 nav.tabs{border-bottom:3px solid #ffffff !important}
 #pane table thead th,#flHead table thead th{border-bottom:3px solid #ffffff !important}
 #pane table thead th+th,#flHead table thead th+th{border-left:1px solid rgba(255,255,255,.75) !important}
+/* Mandante del mismo tamaño que el proyecto; columnas de montos (facturado, por facturar, %, pagado, por pagar) más angostas */
+td.mand{font-size:.98rem;line-height:1.3}
+#pane .tbl.wide th.h-fac,#pane .tbl.wide th.h-pf,#pane .tbl.wide th.h-pct,#pane .tbl.wide th.h-pag,#pane .tbl.wide th.h-pp,#flHead th.h-fac,#flHead th.h-pf,#flHead th.h-pct,#flHead th.h-pag,#flHead th.h-pp{width:1%;max-width:84px;white-space:normal;font-size:.68rem;padding-left:5px;padding-right:5px;line-height:1.15}
+#pane .tbl.wide td.c-fac,#pane .tbl.wide td.c-pf,#pane .tbl.wide td.c-pct,#pane .tbl.wide td.c-pag,#pane .tbl.wide td.c-pp{width:1%;padding-left:5px;padding-right:5px}
+#pane .tbl.wide th.h-pct,#pane .tbl.wide td.c-pct{min-width:52px}
 </style>
 
 <div class="wrap">
@@ -1562,7 +1567,7 @@ function vProyectos() {
   <p class="small muted">${S.proyectos.length} registrados · ${canc.length} cancelados (${uf(canc.reduce((s,p)=>s+(p.montoUF||0),0))} UF). Haga clic en una fila para editarla.</p>
   ${resumenEstados()}
   ${rows.length ? `<div class="pcards">${rows.map(cardProy).join('')}</div><div class="tbl wide"><table>
-    <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto&nbsp;UF · $','n cen',SUB_CI)}${sortTh('propio','Propio&nbsp;(UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado&nbsp;(UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar&nbsp;(UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
+    <thead><tr>${sortTh('codigo','Código')}${sortTh('mandante','Empresa mandante')}${sortTh('proyecto','Proyecto')}${sortTh('contacto','Contacto')}${sortTh('documento','Documento')}${sortTh('montoUF','Monto&nbsp;UF · $','n cen',SUB_CI)}${sortTh('propio','Propio&nbsp;(UF)','n cen',SUB_SI)}${sortTh('entrega','Entrega')}${sortTh('estado','Estado')}${sortTh('facturado','Facturado (UF)','n h-fac',SUB_CI)}${sortTh('porFact','Por facturar (UF)','n h-pf',SUB_CI)}${sortTh('pctF','% fact.','n h-pct')}${sortTh('pagado','Status: pagado','n h-pag',SUB_CI)}${sortTh('porPagar','Status: por pagar','n h-pp',SUB_CI)}</tr></thead>
     <tbody>${rows.map(p => { const m = proyMetrics(p); const late = p.entrega && p.entrega < today() && !['Solicitar HES/WE/HAS','Facturar','Facturado','Pagado',EST_ST,'Cancelado','No adjudicado'].includes(p.estado);
       return `<tr class="click ${p.estado==='Cancelado'?'cancel':''} ${p.estado==='Facturar'?'row-factu':''} ${estCls(p.estado, p.documento)}" data-edit="proyectos" data-id="${p.id}">
       <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${cotDe(p).length ? `<span class="refl">Cotizaciones: ${cotDe(p).length}</span>` : ''}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
