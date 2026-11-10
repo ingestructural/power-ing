@@ -1406,17 +1406,13 @@ function estTinta(hex) { const n = parseInt(hex.slice(1), 16), L = c => { c /= 2
   const Y = 0.2126 * L(n >> 16 & 255) + 0.7152 * L(n >> 8 & 255) + 0.0722 * L(n & 255); return (1.05 / (Y + 0.05)) >= ((Y + 0.05) / 0.05) ? '#ffffff' : '#111111'; }
 (function () {
   let css = '';
+  // Filas y tarjetas: todas con el fondo celeste tenue de los cuadros de resumen; solo la etiqueta del estado lleva el color del estado
+  css += `table tbody tr[class*="st-"] td{background:var(--kpi-bg)!important;color:var(--kpi-val)!important} table tbody tr[class*="st-"]:hover td{background:color-mix(in srgb,var(--kpi-bg) 85%,var(--kpi-top))!important}`;
+  css += `table tbody tr[class*="st-"] td{border-bottom:1px solid var(--kpi-bd)!important}`;
+  css += `.pcard[class*="st-"]{background:var(--kpi-bg)!important;color:var(--kpi-val)!important;border-left:1px solid var(--kpi-bd)!important}`;
   Object.values(EST_COLOR).forEach(({c, k}) => {
-    const t = estTinta(c), osc = t === '#ffffff', borde = c === '#FFFFFF' ? '#BFBFBF' : c;
-    // fila de la tabla (todas las celdas, incluidas las columnas de montos que tienen color propio)
-    css += `table tbody tr.st-${k} td{background:${c}!important;color:${t}!important} table tbody tr.st-${k}:hover td{background:color-mix(in srgb,${c} 88%,${osc ? '#ffffff' : '#000000'})!important}`;
-    css += `table tbody tr.st-${k} td *:not(.pill):not(.cobrar):not(.cobrar *):not(.pbar):not(.pbar *){color:inherit!important} table tbody tr.st-${k} td:first-child{box-shadow:inset 5px 0 0 ${borde}}`;
-    css += `table tbody tr.st-${k} .pbar{background:${osc ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.18)'}} table tbody tr.st-${k} .pbar i{background:${t}}`;
-    // tarjeta del celular
-    css += `.pcard.st-${k}{background:${c}!important;color:${t}!important;border-left:6px solid ${borde}!important} .pcard.st-${k} *:not(.pill):not(.cobrar):not(.cobrar *){color:inherit!important}`;
-    // pastilla: color pleno en el resumen; dentro de la fila (mismo fondo) se invierte para que se distinga
+    const t = estTinta(c);
     css += `.pill.st-${k}{background:${c}!important;color:${t}!important;font-weight:700;border:1px solid ${c === '#FFFFFF' ? '#9CA3AF' : 'rgba(0,0,0,.15)'}!important}`;
-    css += `table tbody tr.st-${k} .pill.st-${k},.pcard.st-${k} .pill.st-${k}{background:${osc ? '#ffffff' : '#111111'}!important;color:${osc ? c : (c === '#FFFFFF' ? '#ffffff' : c)}!important;border:1px solid ${t}!important}`;
   });
   const st = document.createElement('style'); st.id = 'estColores'; st.textContent = css; document.head.appendChild(st);
 })();
@@ -1568,8 +1564,7 @@ function vProyectos() {
       <td class="code keep" style="color:${p.documento==='F'?'var(--ing)':'var(--ga)'}">${esc(p.codigo)}<span class="fing" title="Fecha de ingreso">${p.creado ? fdate(p.creado) : '—'}</span></td><td class="mand">${esc(p.mandante)}${rutDe(p.mandante) ? `<span class="rutm">${esc(rutDe(p.mandante))}</span>` : ''}</td><td class="pname">${esc(projName(p))}${cotDe(p).length ? `<span class="refl">Cotizaciones: ${cotDe(p).length}</span>` : ''}${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].some(x=>x[1]) ? `<span class="refl">${[['OC',p.oc],['HES',p.hes],['HAS',p.has],['WE',p.we]].filter(x=>x[1]).map(x=>x[0]+' '+esc(x[1])).join(' · ')}</span>` : ''}</td><td>${esc(TITLE(p.contacto || ''))}</td>
       <td class="keep">${p.documento==='F'?'<span class="pill p-i">Factura</span>':'<span class="pill p-g">Boleta</span>'}</td>
       <td class="n cen">${uf(p.montoUF)}<span class="fing">${clp(m.totalCLP)}</span>${cotTag(p)}</td><td class="n cen prop" title="${p.documento==='F'?'Neto sin IVA menos costo neto de terceros':'Bruto menos terceros'}">${uf(m.propioUF)}${m.tercUF > 0 ? `<span class="fing">terceros ${uf(m.tercUF)}</span>` : ''}</td><td class="nw ${late?'late':''}">${fdate(p.entrega)}</td>
-      <td class="keep">${pillProy(p.estado, p.documento)}${(() => { const cp = cobroPend(p, m); const pg = pagarTerc(p, m); const pgH = pg ? `<div class="cobrar pag" title="El cliente ya pagó: pagar al tercero">🟠 PAGAR${pg.map(t => `<span>${uf(t.montoUF)} UF · ${esc(t.nombre||'tercero')}</span>`).join('')}</div>` : '';
-      return odcHtml(p) + pgH + (cp ? (cp.tipo === 'hes' ? `<div class="cobrar hes" title="Solicitar al cliente HES / WE / HAS para poder facturar">📋 SOLICITAR HES/WE/HAS<span>${esc(cp.t)}</span></div>` : cp.tipo === 'fact' ? `<div class="cobrar fac nd" data-newdoc="${p.documento==='F'?'facturas':'boletas'}" data-proy="${p.id}" title="Clic: emitir ${p.documento==='F'?'factura':'boleta'} de este proyecto">📄 ${p.documento==='F'?'FACTURAR':'EMITIR BOLETA'}<span>${esc(cp.t)}</span></div>` : `<div class="cobrar" title="Facturado / boleta emitida: falta cobrar">💲 COBRAR<span>${esc(cp.t)}</span></div>`) : ''); })()}${p.estado==='Cancelado'?`<div class="small muted">${fdate(p.fechaCancel)} · ${esc(p.motivoCancel||'sin motivo')}</div>`:''}</td>
+      <td class="keep">${pillProy(p.estado, p.documento)}${p.estado==='Cancelado'?`<div class="small muted">${fdate(p.fechaCancel)} · ${esc(p.motivoCancel||'sin motivo')}</div>`:''}</td>
       <td class="n c-fac ${m.facturadoUF>0.005?'on':''}">${uf(m.facturadoUF)}</td><td class="n c-pf ${m.porFacturar>0.005?'on':''}" style="${m.porFacturar<-0.005?'color:var(--bad)':''}">${uf(m.porFacturar)}</td><td class="n c-pct">${m.pctF==null?'—':`${pct(m.pctF)}<span class="pbar"><i style="width:${Math.max(0,Math.min(100,m.pctF*100))}%"></i></span>`}</td>
       <td class="n c-pag ${m.pagado>0?'on':''}">${clp(m.pagado)}</td><td class="n c-pp ${m.porPagar>0?'on':''}">${clp(m.porPagar)}</td></tr>`; }).join('')}</tbody></table></div>`
   : `<div class="empty">${S.proyectos.length ? 'Ningún proyecto coincide con el filtro.' : 'Aún no hay proyectos. Use “+ Nuevo proyecto” para registrar el primero; el código se asigna solo.'}</div>`}
