@@ -802,6 +802,10 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
 #kpis .kpi,#kpis .kpi:nth-child(n){background:var(--kpi-bg) !important;border-color:var(--kpi-bd) !important;border-top-color:var(--kpi-top) !important}
 #kpis .kpi small,#kpis .kpi .kt,#kpis .kpi .kt.liq,#kpis .kpi em{color:var(--kpi-lbl) !important}
 #kpis .kpi b,#kpis .kpi:nth-child(n) b{color:var(--kpi-val) !important}
+/* Líneas blancas de separación: bajo la cinta de pestañas y bajo la fila de títulos de la tabla (también en su copia fija al desplazarse) */
+nav.tabs{border-bottom:3px solid #ffffff !important}
+#pane table thead th,#flHead table thead th{border-bottom:3px solid #ffffff !important}
+#pane table thead th+th,#flHead table thead th+th{border-left:1px solid rgba(255,255,255,.75) !important}
 </style>
 
 <div class="wrap">
@@ -1568,7 +1572,7 @@ function vProyectos() {
       <td class="n c-fac ${m.facturadoUF>0.005?'on':''}">${uf(m.facturadoUF)}</td><td class="n c-pf ${m.porFacturar>0.005?'on':''}" style="${m.porFacturar<-0.005?'color:var(--bad)':''}">${uf(m.porFacturar)}</td><td class="n c-pct">${m.pctF==null?'—':`${pct(m.pctF)}<span class="pbar"><i style="width:${Math.max(0,Math.min(100,m.pctF*100))}%"></i></span>`}</td>
       <td class="n c-pag ${m.pagado>0?'on':''}">${clp(m.pagado)}</td><td class="n c-pp ${m.porPagar>0?'on':''}">${clp(m.porPagar)}</td></tr>`; }).join('')}</tbody></table></div>`
   : `<div class="empty">${S.proyectos.length ? 'Ningún proyecto coincide con el filtro.' : 'Aún no hay proyectos. Use “+ Nuevo proyecto” para registrar el primero; el código se asigna solo.'}</div>`}
-  <p class="note">Colores: <span style="color:#c2410c;font-weight:700">por facturar</span> · <span style="color:#6d28d9;font-weight:700">% facturado</span> · <span style="color:#15803d;font-weight:700">pagado</span> · <span style="color:#b91c1c;font-weight:700">por pagar</span> — cada estado tiene su color, que se aplica al fondo de la fila del proyecto: ${ESTADOS_PROY.flatMap(e => e === 'Facturar' ? [['Facturar','F'],['Facturar','B']] : e === 'Facturado' ? [['Facturado','F'],['Facturado','B']] : [[e,'']]).map(([e, d]) => pillProy(e, d)).join(' ')}</p>
+  <p class="note">Colores: <span style="color:#c2410c;font-weight:700">por facturar</span> · <span style="color:#6d28d9;font-weight:700">% facturado</span> · <span style="color:#15803d;font-weight:700">pagado</span> · <span style="color:#b91c1c;font-weight:700">por pagar</span> — cada estado tiene su color, que se muestra en la etiqueta del estado: ${ESTADOS_PROY.flatMap(e => e === 'Facturar' ? [['Facturar','F'],['Facturar','B']] : e === 'Facturado' ? [['Facturado','F'],['Facturado','B']] : [[e,'']]).map(([e, d]) => pillProy(e, d)).join(' ')}</p>
   <p class="note">📋 SOLICITAR ODC: pedir al cliente la orden de compra · 📄 FACTURAR / EMITIR BOLETA: proyecto entregado con saldo por documentar (clic en el aviso para emitir) · 📋 SOLICITAR HES/WE/HAS: pedir las referencias del cliente antes de facturar (indica cuáles faltan) · 💲 COBRAR: proyecto facturado con pagos pendientes. Al marcarlo «Pagado» deja de cobrarse. Fecha de entrega en rojo: atrasada.</p>
   <p class="note">Código: SIGLA del mandante – correlativo del mandante – correlativo general del año – año (2 dígitos). Se asigna al crear el proyecto; se reasigna si cambia el mandante o el año, o si el proyecto se mueve a otro archivo (queda registrado el código anterior). Un proyecto cancelado conserva su código, su saldo por facturar pasa a cero y lo ya facturado o cobrado se mantiene.</p>`;
 }
