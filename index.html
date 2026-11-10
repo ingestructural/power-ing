@@ -603,9 +603,11 @@ td.mand{font-weight:800;color:var(--logo1);letter-spacing:.02em}
 .hoy #hoyFecha{font-weight:600;color:var(--ink)}
 .hoy .ufv{font-family:var(--ff-d);font-weight:700;color:var(--logo1);background:color-mix(in srgb,var(--logo2) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--logo2) 40%,transparent);border-radius:4px;padding:2px 8px}
 .hoy .ufv b{font-family:var(--ff-m);font-size:1rem}
-.hoy small{font-size:.68rem}
+.hoy small{font-size:.68rem;white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}
 .hoy .ufre{border:1px solid var(--line);background:var(--panel);color:var(--logo1);border-radius:4px;padding:0 7px;font-size:.9rem;line-height:1.5;cursor:pointer}
-.hoy .ufre:disabled{opacity:.5;cursor:wait}
+.hoy .ufre:disabled{opacity:.6;cursor:wait}
+.hoy .ufre:disabled span{display:inline-block;animation:ufgira 1s linear infinite}
+@keyframes ufgira{to{transform:rotate(360deg)}}
 .topact{position:sticky;top:calc(-18px - env(safe-area-inset-top,0px));z-index:5;background:var(--panel);margin:calc(-18px - env(safe-area-inset-top,0px)) -18px 10px;padding:calc(12px + env(safe-area-inset-top,0px)) 18px 8px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 4px 8px -6px rgba(0,0,0,.25)}
 .topact .err{margin:0;min-height:0}
 .p-fac{background:color-mix(in srgb,#0060c1 16%,var(--panel));color:#0060c1;border:1px solid color-mix(in srgb,#0060c1 40%,transparent)}
@@ -798,7 +800,7 @@ html.pw-visor [data-bja],html.pw-visor #bjFile,html.pw-visor .bj-bar label.btn{d
       <h1>POWER</h1>
       <p>Administración ING Estructural · proyectos, facturas, boletas de honorarios y resumen tributario</p>
     </div></div>
-    <div class="toprt"><div class="hoy" id="hoyBox"><span id="hoyFecha"></span><span class="ufv">UF <b id="hoyUF">—</b></span><small id="hoyUFsrc"></small><button type="button" class="ufre" id="ufReload" title="Recargar la UF del día (mindicador.cl)" aria-label="Recargar UF del día">↻</button></div>
+    <div class="toprt"><div class="hoy" id="hoyBox"><span id="hoyFecha"></span><span class="ufv">UF <b id="hoyUF">—</b></span><small id="hoyUFsrc"></small><button type="button" class="ufre" id="ufReload" title="Recargar la UF del día (mindicador.cl)" aria-label="Recargar UF del día"><span>↻</span></button></div>
     <div class="who"><span class="i">Facturas · ING Estructural</span><span class="g">Boletas · Germán Aguilera</span></div>
     <button type="button" class="acbtn" id="acBtn" hidden></button></div>
   </header>
@@ -2622,7 +2624,7 @@ function pintarHoy(v, src, fechaUF) {
   const f = new Date(); const t = f.toLocaleDateString('es-CL', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
   $('#hoyFecha').textContent = t.charAt(0).toUpperCase() + t.slice(1);
   $('#hoyUF').textContent = v ? clp2(v) : '—';
-  $('#hoyUFsrc').textContent = src + (fechaUF ? ' · ' + fechaUF : '');
+  const el = $('#hoyUFsrc'); el.textContent = src + (fechaUF ? ' · ' + fechaUF : ''); el.title = el.textContent;
 }
 const clp2 = n => '$' + Number(n).toLocaleString('es-CL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 /* Una sola UF: la UF del día (mindicador.cl). Se guarda en Parámetros (ufRef + ufFecha) para que todo POWER y el Cotizador usen la misma. */
@@ -2635,17 +2637,26 @@ function syncUF() {
   if (!LOCAL && db && S.loaded.config && !VISOR()) putConfig('params', S.params).catch(() => {});
 }
 async function cargarUF(manual) {
-  const btn = $('#ufReload'); if (btn) btn.disabled = true;
+  const btn = $('#ufReload'); if (btn) { if (btn.disabled) return; btn.disabled = true; }
   if (!S.ufHoy) pintarHoy(P().ufRef, 'UF guardada', P().ufFecha ? fdate(P().ufFecha) : '');
-  try {
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch('https://mindicador.cl/api/uf', {signal: ctl.signal, cache: 'no-store'}); clearTimeout(to);
-    const j = await r.json(); const it = j && j.serie && j.serie[0];
-    if (it && it.valor) { S.ufHoy = {valor: +it.valor, fecha: String(it.fecha).slice(0, 10), t: Date.now()}; syncUF();
-      pintarHoy(P().ufRef, 'UF del día · mindicador.cl', fdate(P().ufFecha)); render(); if (manual) toast('UF actualizada: ' + clp2(P().ufRef)); }
-    else throw new Error('sin datos');
-  } catch (e) { pintarHoy(P().ufRef, 'UF guardada (sin conexión a mindicador.cl)', P().ufFecha ? fdate(P().ufFecha) : ''); if (manual) toast('No se pudo consultar la UF del día'); }
-  finally { if (btn) btn.disabled = false; }
+  const antes = P().ufRef; let err = '';
+  for (let i = 0; i < 2 && !S._ufOk; i++) {   // 2 intentos, 12 s cada uno (mindicador.cl a veces responde lento)
+    try {
+      const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 12000);
+      const r = await fetch('https://mindicador.cl/api/uf?t=' + Date.now(), {signal: ctl.signal, cache: 'no-store'}); clearTimeout(to);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json(); const it = j && j.serie && j.serie[0];
+      if (!(it && it.valor)) throw new Error('respuesta sin datos');
+      S.ufHoy = {valor: +it.valor, fecha: String(it.fecha).slice(0, 10), t: Date.now()}; syncUF(); S._ufOk = true;
+    } catch (e) { err = e.name === 'AbortError' ? 'sin respuesta en 12 s' : (e.message || String(e)); }
+  }
+  const hora = new Date().toLocaleTimeString('es-CL', {hour: '2-digit', minute: '2-digit', hour12: false});
+  if (S._ufOk) { pintarHoy(P().ufRef, 'mindicador.cl', fdate(P().ufFecha) + ' · ' + hora); render();
+    if (manual) toast(P().ufRef === antes ? `UF confirmada: ${clp2(P().ufRef)} (${fdate(P().ufFecha)}), sin cambios` : `UF actualizada: ${clp2(P().ufRef)}`); }
+  else { pintarHoy(P().ufRef, 'guardada', P().ufFecha ? fdate(P().ufFecha) : '');
+    $('#hoyUFsrc').title = 'No se pudo consultar mindicador.cl: ' + err + '. Se usa la UF guardada en POWER.';
+    if (manual) toast('No se pudo consultar mindicador.cl (' + err + '). Se mantiene la UF guardada.'); }
+  S._ufOk = false; if (btn) btn.disabled = false;
 }
 document.addEventListener('click', e => { if (e.target.closest('#ufReload')) cargarUF(true); });
 // se mantiene al día: al volver a la ventana, si cambió el día o pasó más de 1 hora
