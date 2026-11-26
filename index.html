@@ -2559,8 +2559,7 @@ async function epPDF(E) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...BL);
   const tt = T('ESTADO DE PAGO N° ' + E.num), tw = doc.width(tt), xc = (X0 + X1) / 2;
   doc.text(tt, xc, st.y + 5, {align: 'center'}); doc.setDrawColor(...BL); doc.setLineWidth(0.45); doc.line(xc - tw / 2, st.y + 6.3, xc + tw / 2, st.y + 6.3);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...BL2); doc.text(T(`Fecha de emisión: ${fdate(E.fecha)} · Proyecto ${p.codigo}`), xc, st.y + 11.8, {align: 'center'});
-  st.y += 16;
+  st.y += 11;
   const K = t => ({t, b: true, f: LF}), c = E.cot;
   sec('1. DATOS DEL PROYECTO');
   tabla([{w: 36}, {w: 68}, {w: 38}, {w: 33}], [
@@ -2596,7 +2595,7 @@ async function epPDF(E) {
   const LG = [248, 249, 251], ant = [{h: true, g: true, f: LG, c: ['N°', 'Fecha', 'Documento', 'Monto (UF)', 'Estado']},
     ...(E.docs.length ? E.docs.map((d, i) => ({g: true, c: [String(i + 1), fdate(d.fecha) || '-', `${d.t} ${d.numero || ''}`, uf(d.montoUF), d.estado || '-']})) : [{g: true, c: [{t: 'Sin documentos emitidos', span: 5, al: 'c'}]}]),
     {g: true, f: LG, c: [{t: 'Total ya emitido (B)', span: 3, al: 'r'}, uf(E.B), '']}];
-  const nAnt = E.obs ? 6 : 5, tAnt = () => { if (st.y + 7 + ant.length * 6.2 > YB) nueva(); sec(nAnt + '. ESTADOS DE PAGO ANTERIORES (solo referencia, ya emitidos)', X0, W, st, true); tabla([{w: 12, al: 'c'}, {w: 30, al: 'c'}, {w: 60, al: 'c'}, {w: 35, al: 'r'}, {w: 38, al: 'c'}], ant); };
+  const nAnt = E.obs ? 6 : 5, tAnt = () => { if (st.y + 6 + ant.length * 6.1 > YB + 1) nueva(); sec(nAnt + '. ESTADOS DE PAGO ANTERIORES (solo referencia, ya emitidos)', X0, W, st, true); tabla([{w: 12, al: 'c'}, {w: 30, al: 'c'}, {w: 60, al: 'c'}, {w: 35, al: 'r'}, {w: 38, al: 'c'}], ant); };
   // 4 (resumen) a la izquierda; 5 (observaciones) y la firma a la derecha; los anteriores van al final, en gris
   let firmado = false;
   const wl = 86, wr = W - wl - 5, xr = X0 + wl + 5, hL = 6 + res.length * 6.4, hR = E.obs ? 14 + E.obs.length / 4 : 0;
@@ -2606,10 +2605,10 @@ async function epPDF(E) {
     if (E.obs) { sec('5. OBSERVACIONES', xr, wr, sR); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6); doc.setTextColor(0);
       const ls = doc.splitTextToSize(T(E.obs), wr - 3), h = ls.length * 3.45 + 3; doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(xr, sR.y, wr, h, 'S'); doc.text(ls, xr + 1.5, sR.y + 3.6); sR.y += h; }
     st.y = Math.max(sL.y, sR.y);
-    const fy = Math.max(sR.y + (fimg ? 30 : 14), sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); firmado = true; st.y = Math.max(st.y, fy + 16); } }
+    const fy = Math.max(sR.y + (fimg ? 30 : 14), sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); firmado = true; st.y = Math.max(st.y, fy + 15); } }
   else { sec('4. RESUMEN DEL ESTADO DE PAGO'); tabla([{w: 135}, {w: 40, al: 'r'}], res);
     if (E.obs) { st.y += 4; sec('5. OBSERVACIONES'); tabla([{w: W}], [{c: [E.obs]}]); } }
-  st.y += 6; tAnt();
+  st.y += 3.5; tAnt();
   if (firmado) return fin();
   st.y += fimg ? 32 : 16; if (st.y + 16 > YB) { nueva(); st.y += fimg ? 32 : 16; }
   firma(X1 - 36, X1 - 72, X1, st.y);
