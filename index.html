@@ -2658,7 +2658,6 @@ function epSalida(E) {
       <button class="btn" id="dPdf">⬇ Descargar PDF</button>
       ${carpOK ? '<button class="btn ghost" id="dCarp">📁 Guardar PDF en carpeta del cliente</button>' : ''}
       <button class="btn ghost" id="dMail" title="Descarga un correo nuevo (.eml) con el PDF adjunto: al abrirlo se abre en Outlook">✉ Correo en Outlook</button>
-      <button class="btn ghost" id="dBig" title="Abrir el PDF en una pestaña nueva, a pantalla completa">⛶ Ver en grande</button>
       <button class="btn ghost" id="dClose">Cerrar</button></div>
     <div class="small" style="margin-bottom:8px">A pagar: <b>${uf(E.C)} UF</b> <span class="muted">· referencia en pesos (no va en el documento): ${clp(E.C * P().ufRef)} con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''}</span></div>
     <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
@@ -2673,7 +2672,6 @@ function epSalida(E) {
   const cerrar = () => { host.remove(); if (url) URL.revokeObjectURL(url); };
   host.querySelector('#dClose').onclick = cerrar;
   host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
-  host.querySelector('#dBig').onclick = async () => { try { const b = await getBlob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); } catch (e) { msg('No se pudo abrir el PDF: ' + (e.message || e)); } };
   const vista = () => { if (url) { URL.revokeObjectURL(url); url = null; } getBlob().then(b => { url = URL.createObjectURL(b); host.querySelector('#epView').src = url + '#view=FitH'; }).catch(e => msg('No se pudo generar el PDF: ' + (e.message || e))); };
   const fb = host.querySelector('#dFirma'), pintaF = () => { fb.setAttribute('aria-pressed', String(!!E.firmar)); fb.textContent = E.firmar ? '✓ Firmado' : '✍ Firmar'; fb.classList.toggle('ghost', !E.firmar); };
   try { E.firmar = localStorage.getItem('ep_firmar') === '1' && !!(S.firmaCot && S.firmaCot.png); } catch (e) { E.firmar = false; }
