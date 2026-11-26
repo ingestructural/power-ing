@@ -2613,10 +2613,19 @@ function epPie(doc, E, X0, X1, BL, GR) {   // pie en todas las páginas
   doc.setProperties({title: epNombrePDF(E).replace(/\.pdf$/, ''), author: 'ING Estructural'});
   return doc.output();
 }
+const blobB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+function epEml(subj, body, nombre, pdfB64) {   // mismo formato que el Cotizador: X-Unsent abre el mensaje como borrador nuevo en Outlook
+  const B = '----=_ep_' + Date.now().toString(36), u8 = t => { let s = ''; new TextEncoder().encode(t).forEach(c => s += String.fromCharCode(c)); return btoa(s); };
+  const lin = t => t.replace(/.{1,76}/g, '$&\r\n'), hdr = t => /^[\x20-\x7e]*$/.test(t) ? t : `=?UTF-8?B?${u8(t)}?=`;
+  return ['X-Unsent: 1', 'To: ', 'Cc: ingestructural@ingestructural.cl', 'Subject: ' + hdr(subj), 'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${B}"`, '',
+    '--' + B, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', lin(u8(body)),
+    '--' + B, `Content-Type: application/pdf; name="${nombre}"`, `Content-Disposition: attachment; filename="${nombre}"`, 'Content-Transfer-Encoding: base64', '', lin(pdfB64),
+    '--' + B + '--', ''].join('\r\n');
+}
 const epNombrePDF = E => `Estado_de_pago_${E.num}_${E.p.codigo}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
 function epSalida(E) {
   const nom = epNombrePDF(E), p = E.p, asunto = `Estado de pago N° ${E.num} - ${p.codigo} ${projName(p)}`;
-  const nota = `Estimados:\n\nAdjunto estado de pago N° ${E.num} del proyecto ${p.codigo} ${projName(p)} (archivo ${nom}).\n\nSaludos cordiales,\nJ. Germán Aguilera Hafner\nING Estructural`;
+  const nota = `Estimados:\n\nAdjunto estado de pago N° ${E.num} del proyecto ${p.codigo} ${projName(p)}.\n\nSaludos cordiales,\n\nJ. GERMÁN AGUILERA HAFNER\nIngeniero Civil\nING Estructural`;
   const carpOK = LOCAL && FS.supported && FS.dir;
   let host = document.getElementById('docOut'); if (host) host.remove();
   host = document.createElement('div'); host.id = 'docOut';
@@ -2625,7 +2634,7 @@ function epSalida(E) {
       <button class="btn" id="dShare" hidden>📤 Enviar PDF…</button>
       <button class="btn" id="dPdf">⬇ Descargar PDF</button>
       ${carpOK ? '<button class="btn ghost" id="dCarp">📁 Guardar PDF en carpeta del cliente</button>' : ''}
-      <button class="btn ghost" id="dMail">✉ Correo con PDF</button>
+      <button class="btn ghost" id="dMail" title="Descarga un correo nuevo (.eml) con el PDF adjunto: al abrirlo se abre en Outlook">✉ Correo en Outlook</button>
       <button class="btn ghost" id="dBig" title="Abrir el PDF en una pestaña nueva, a pantalla completa">⛶ Ver en grande</button>
       <button class="btn ghost" id="dClose">Cerrar</button></div>
     <div class="small" style="margin-bottom:8px">A pagar: <b>${uf(E.C)} UF</b> <span class="muted">· referencia en pesos (no va en el documento): ${clp(E.C * P().ufRef)} con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''}</span></div>
@@ -2643,7 +2652,10 @@ function epSalida(E) {
   host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
   host.querySelector('#dBig').onclick = async () => { try { const b = await getBlob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); } catch (e) { msg('No se pudo abrir el PDF: ' + (e.message || e)); } };
   host.querySelector('#dPdf').onclick = conPDF(async b => { const ok = await descargarBlob(b, nom); if (ok) msg('PDF descargado: ' + nom); return ok; });
-  host.querySelector('#dMail').onclick = conPDF(async b => { if (!(await descargarBlob(b, nom))) return false; const a = document.createElement('a'); a.href = 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(nota); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); msg('PDF descargado (' + nom + '). Adjúntelo al correo que se abrió.'); return true; });
+  // Correo: archivo .eml (mensaje nuevo sin enviar, con el PDF adjunto). Al abrirlo, Outlook muestra la ventana de mensaje nuevo; solo falta el destinatario y Enviar.
+  host.querySelector('#dMail').onclick = conPDF(async b => { const eml = epEml(asunto, nota, nom, await blobB64(b));
+    if (!(await descargarBlob(new Blob([eml], {type: 'message/rfc822'}), nom.replace(/\.pdf$/, '.eml')))) return false;
+    msg('Correo listo (' + nom.replace(/\.pdf$/, '.eml') + '): ábralo y Outlook lo muestra como mensaje nuevo con el PDF adjunto; agregue el destinatario y presione Enviar.'); return true; });
   const cb = host.querySelector('#dCarp');
   if (cb) cb.onclick = conPDF(async b => {
     if (!(await ensurePerm(FS.dir))) { toast('Sin permiso para escribir en la carpeta'); return false; }
