@@ -630,7 +630,8 @@ th.cen,td.cen{text-align:center!important}
 .epb .rt{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#2E5395}
 .ept{width:100%;border-collapse:collapse;font-size:.8rem} .ept th{font-size:.7rem;color:var(--muted);background:none;text-align:left;font-weight:600;text-transform:none;letter-spacing:0} .ept th,.ept td{padding:3px 4px;border-bottom:1px solid var(--line)}
 .ept .n{text-align:right;white-space:nowrap} .ept input{width:64px;text-align:right;padding:3px 5px}
-#docOut .docout-box.ep{max-width:900px}
+#docOut .docout-bg:has(.docout-box.ep){padding:8px} #docOut .docout-box.ep{max-width:none;width:min(1400px,100%);padding:10px 12px}
+#docOut .docout-box.ep #epView{height:calc(100vh - 150px);min-height:480px}
 .tercsum{font-size:.8rem} .tercsum .prop{color:var(--ok)} .warnt{color:#b45309;font-size:.74rem}
 td.prop{color:var(--ok);font-weight:700}
 .cobrar.pag{color:#c2410c;background:#ffedd5;border-color:#ea580c;margin-right:3px}
@@ -2625,9 +2626,10 @@ function epSalida(E) {
       <button class="btn" id="dPdf">⬇ Descargar PDF</button>
       ${carpOK ? '<button class="btn ghost" id="dCarp">📁 Guardar PDF en carpeta del cliente</button>' : ''}
       <button class="btn ghost" id="dMail">✉ Correo con PDF</button>
+      <button class="btn ghost" id="dBig" title="Abrir el PDF en una pestaña nueva, a pantalla completa">⛶ Ver en grande</button>
       <button class="btn ghost" id="dClose">Cerrar</button></div>
     <div class="small" style="margin-bottom:8px">A pagar: <b>${uf(E.C)} UF</b> <span class="muted">· referencia en pesos (no va en el documento): ${clp(E.C * P().ufRef)} con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''}</span></div>
-    <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;height:72vh;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
+    <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
     <div class="small muted" id="dMsg" style="margin-top:8px">El estado de pago queda registrado en el proyecto al descargarlo, guardarlo o enviarlo (si lo vuelve a emitir hoy, se reemplaza y conserva el número).</div>
   </div></div>`;
   document.body.appendChild(host);
@@ -2639,6 +2641,7 @@ function epSalida(E) {
   const cerrar = () => { host.remove(); if (url) URL.revokeObjectURL(url); };
   host.querySelector('#dClose').onclick = cerrar;
   host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
+  host.querySelector('#dBig').onclick = async () => { try { const b = await getBlob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); } catch (e) { msg('No se pudo abrir el PDF: ' + (e.message || e)); } };
   host.querySelector('#dPdf').onclick = conPDF(async b => { const ok = await descargarBlob(b, nom); if (ok) msg('PDF descargado: ' + nom); return ok; });
   host.querySelector('#dMail').onclick = conPDF(async b => { if (!(await descargarBlob(b, nom))) return false; const a = document.createElement('a'); a.href = 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(nota); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); msg('PDF descargado (' + nom + '). Adjúntelo al correo que se abrió.'); return true; });
   const cb = host.querySelector('#dCarp');
@@ -2652,7 +2655,7 @@ function epSalida(E) {
   try { const probe = new File([new Blob(['%PDF'], {type: 'application/pdf'})], nom, {type: 'application/pdf'});
     if (navigator.canShare && navigator.canShare({files: [probe]})) { const sb = host.querySelector('#dShare'); sb.hidden = false;
       sb.onclick = conPDF(async b => { try { await navigator.share({files: [new File([b], nom, {type: 'application/pdf'})], title: asunto}); return true; } catch (e) { if (e.name !== 'AbortError') toast('No se pudo compartir; use «Descargar PDF»'); return false; } }); } } catch (e) {}
-  getBlob().then(b => { url = URL.createObjectURL(b); host.querySelector('#epView').src = url; }).catch(e => msg('No se pudo generar el PDF: ' + (e.message || e)));
+  getBlob().then(b => { url = URL.createObjectURL(b); host.querySelector('#epView').src = url + '#view=FitH'; }).catch(e => msg('No se pudo generar el PDF: ' + (e.message || e)));
 }
 const TIPOS_COBRO = ['Total', 'Anticipo', 'Estado de pago', 'Saldo final'];
 function saldoProy(p, rec) { // saldo por facturar sin contar el documento que se edita
