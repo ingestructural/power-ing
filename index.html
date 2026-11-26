@@ -2492,7 +2492,7 @@ function epFichaHtml(r) {
   const E = epCalc(proyById(r.id) || r, r.epAv || {}), av = r.epAv || {};
   const nv = x => String(x).replace('.', ',');
   return `<div class="epb full"><div class="rt">Estado de pago — % de avance acumulado por alcance</div>
-    <table class="ept"><thead><tr><th>Alcance</th><th class="n">Valor (UF)</th><th class="n">EP anterior</th><th class="n">Avance actual</th></tr></thead><tbody>
+    <table class="ept"><thead><tr><th>Alcance</th><th class="n">Valor (UF)</th><th class="n">EP anterior</th><th class="n">Avance actual<br><button type="button" class="btn ghost" id="ep100" title="Pone 100 % en todos los alcances" style="margin-top:4px;padding:2px 8px;font-size:.78rem;text-transform:none">100 % todos</button></th></tr></thead><tbody>
     ${E.rows.map(x => `<tr><td>${esc(x.n)}</td><td class="n">${uf(x.val)}</td><td class="n">${pc1(x.pa)}</td><td class="n"><input class="ep-pct" data-k="${x.k}" data-noupper inputmode="decimal" value="${av[x.k] != null ? nv(av[x.k]) : ''}" placeholder="${nv(x.pa)}"> %</td></tr>`).join('')}
     </tbody></table>
     ${E.global ? '<div class="warnt">La cotización del proyecto no tiene ítems con valor: se usa un solo % para todo el proyecto.</div>' : ''}
@@ -2509,6 +2509,7 @@ function wireEP(rec) {
       : `EP N° <b>${esc(E.num)}</b> · ejecutado ${uf(E.ej)} UF (${pc1(E.avAc)}) · anteriores ${uf(E.B)} UF · <b>a pagar ${uf(E.C)} UF</b>
          <span class="muted">≈ ${clp(E.C * P().ufRef)} con la UF del día (${clp2(P().ufRef)}); los pesos no van en el documento.</span>${E.C < 0 ? '<br><span class="warnt">Lo facturado supera lo ejecutado: revise el avance.</span>' : ''}${E.rows.some(x => x.pp < 0) ? '<br><span class="warnt">Hay alcances con avance menor al del estado de pago anterior.</span>' : ''}`; };
   document.querySelectorAll('.ep-pct').forEach(i => i.addEventListener('input', pinta)); pinta();
+  const b100 = $('#ep100'); if (b100) b100.onclick = () => { document.querySelectorAll('.ep-pct').forEach(i => { i.value = '100'; i.dispatchEvent(new Event('input', {bubbles: true})); }); pinta(); };
   $('#bEP').onclick = () => { const av = leerEP();
     if (Object.values(av).some(v => v < 0 || v > 100)) return toast('El avance debe estar entre 0 y 100 %');
     const E = epCalc(cur(), av, val('epObs')); if (!(E.M > 0)) return toast('El proyecto no tiene monto en UF');
