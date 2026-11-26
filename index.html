@@ -626,6 +626,11 @@ th.cen,td.cen{text-align:center!important}
 .trow{display:grid;grid-template-columns:1.3fr 1.3fr .6fr 1.1fr .8fr .9fr auto;gap:4px;align-items:center}
 .trow input,.trow select{font-size:.8rem;padding:4px 5px;min-width:0}
 @media (max-width:560px){.trow{grid-template-columns:1fr 1fr}}
+.epb{grid-column:1/-1;display:grid;gap:6px;border:1px dashed color-mix(in srgb,#2E5395 45%,transparent);background:color-mix(in srgb,#2E5395 5%,var(--panel));border-radius:3px;padding:6px 8px 8px}
+.epb .rt{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#2E5395}
+.ept{width:100%;border-collapse:collapse;font-size:.8rem} .ept th{font-size:.7rem;color:var(--muted);background:none;text-align:left;font-weight:600;text-transform:none;letter-spacing:0} .ept th,.ept td{padding:3px 4px;border-bottom:1px solid var(--line)}
+.ept .n{text-align:right;white-space:nowrap} .ept input{width:64px;text-align:right;padding:3px 5px}
+#docOut .docout-box.ep{max-width:900px}
 .tercsum{font-size:.8rem} .tercsum .prop{color:var(--ok)} .warnt{color:#b45309;font-size:.74rem}
 td.prop{color:var(--ok);font-weight:700}
 .cobrar.pag{color:#c2410c;background:#ffedd5;border-color:#ea580c;margin-right:3px}
@@ -2137,6 +2142,7 @@ function openEditor(kind, id, preProy, pre) {
         <label>WE<input id="e-we" value="${esc(r.we||'')}"><input id="e-weFecha" class="rfec" type="date" value="${r.weFecha||''}" title="Fecha de emisión de la WE"></label>
         <label class="smf">Planta / sede<input id="e-planta" value="${esc(r.planta||'')}" placeholder="Ej. Mulchen, Nacimiento"></label>
         <label class="smf full2">Carpeta del proyecto<input id="e-carpetaRuta" data-noupper value="${esc(r.carpetaRuta||'')}" placeholder="Ej. 1PLANOS\Cmpc\Mulchen\Ampliación Nave Drymill"></label></div>
+      ${rec ? epFichaHtml(rec) : ''}
       <label class="full">Observaciones<textarea id="e-obs" rows="2">${esc(r.obs||'')}</textarea></label>
       <div class="calc" id="calcBox"></div>
     </form>
@@ -2183,7 +2189,7 @@ function openEditor(kind, id, preProy, pre) {
   if (kind === 'boletas') wireMoneda();
   if (kind !== 'proyectos') wireDocProject(kind, rec); else { wireTerceros(rec); { const ri = $('#e-rut'), ms = $('#e-mandante'); wireRut(ri); if (ri && ms) ms.addEventListener('change', () => { ri.value = ms.value === '__new' ? '' : rutDe(ms.value); }); } liveCase($('#e-newCli'), UP); liveCase($('#e-newSig'), UP); liveCase($('#e-proyecto'), UP); liveCase($('#e-contacto'), TITLE); { const cc = $('#carpCli'); const upd2 = () => { if (cc && FS.dir) cc.textContent = FS.dir.name + ' / ' + (mandanteSel() ? UP(mandanteSel()) : '…'); }; ['e-mandante','e-newCli'].forEach(x => { const el = document.getElementById(x); if (el) el.addEventListener('input', upd2); }); } const bb = $('#bCarpBase'); if (bb) bb.onclick = async () => { await fsPickFolder(true); if (FS.dir) openEditor('proyectos', rec ? rec.id : null); }; }
   if (kind === 'proyectos' && pre) { const ms = $('#e-mandante'); if (pre._newCli && ms) { ms.value = '__new'; ms.dispatchEvent(new Event('change')); const nc = $('#e-newCli'); if (nc) { nc.value = pre._newCli; nc.dispatchEvent(new Event('input')); } } const ri = $('#e-rut'); if (ri && pre._rut && !ri.value) ri.value = pre._rut; }
-  if (kind === 'proyectos' && rec) { $('#bNewF').onclick = () => openEditor('facturas', null, rec.id); $('#bNewB').onclick = () => openEditor('boletas', null, rec.id); const bm = $('#bMove'); if (bm) bm.onclick = () => moveProject(rec.id); }
+  if (kind === 'proyectos' && rec) { wireEP(rec); $('#bNewF').onclick = () => openEditor('facturas', null, rec.id); $('#bNewB').onclick = () => openEditor('boletas', null, rec.id); const bm = $('#bMove'); if (bm) bm.onclick = () => moveProject(rec.id); }
   upd();
   $('#bSave').onclick = () => save(kind, rec);
   if (VISOR()) { root.querySelectorAll('#frm input, #frm select, #frm textarea, #frm button').forEach(el => { el.disabled = true; });
@@ -2269,8 +2275,11 @@ function docCardHtml(D) {
 /* PDF del recuadro: generador PDF propio (sin librerías externas, funciona sin conexión), vectorial, tamaño Carta.
    API mínima al estilo jsPDF (mm, línea base del texto). Fuentes estándar Helvetica/Courier con WinAnsiEncoding. */
 class PDFLite {
-  constructor() { this.ops = []; this.k = 72/25.4; this.H = 279.4; this.fs = 10; this.font = 'F1'; this.tc = '0 g'; this.img = null; this.meta = {};
+  constructor() { this.pages = [[]]; this.ops = this.pages[0]; this.k = 72/25.4; this.H = 279.4; this.fs = 10; this.font = 'F1'; this.tc = '0 g'; this.imgs = []; this.meta = {};
     this.cv = document.createElement('canvas').getContext('2d'); }
+  addPage() { this.pages.push([]); this.ops = this.pages[this.pages.length - 1]; }
+  setPage(i) { this.ops = this.pages[i]; }
+  rect(x, y, w, h, st) { this.ops.push(`${this._X(x)} ${this._Y(y + h)} ${this._n(w*this.k)} ${this._n(h*this.k)} re ${st === 'F' ? 'f' : 'S'}`); }
   _c(a) { return a.length === 1 ? (a[0]/255).toFixed(3) + ' g' : a.map(v => (v/255).toFixed(3)).join(' ') + ' rg'; }
   _n(v) { return (+v).toFixed(2); }
   _X(mm) { return this._n(mm*this.k); } _Y(mm) { return this._n((this.H - mm)*this.k); }
@@ -2292,19 +2301,25 @@ class PDFLite {
   line(x1, y1, x2, y2) { this.ops.push(`${this._X(x1)} ${this._Y(y1)} m ${this._X(x2)} ${this._Y(y2)} l S`); }
   roundedRect(x, y, w, h, r, _r, st) { const K = 0.5523*r, P = (a, b) => `${this._X(a)} ${this._Y(b)}`;
     this.ops.push(`${P(x + r, y)} m ${P(x + w - r, y)} l ${P(x + w - r + K, y)} ${P(x + w, y + r - K)} ${P(x + w, y + r)} c ${P(x + w, y + h - r)} l ${P(x + w, y + h - r + K)} ${P(x + w - r + K, y + h)} ${P(x + w - r, y + h)} c ${P(x + r, y + h)} l ${P(x + r - K, y + h)} ${P(x, y + h - r + K)} ${P(x, y + h - r)} c ${P(x, y + r)} l ${P(x, y + r - K)} ${P(x + r - K, y)} ${P(x + r, y)} c h ${st === 'F' ? 'f' : 'S'}`); }
-  addImage(el, _f, x, y, w, h) { // imagen → JPEG (fondo blanco) embebido con DCTDecode
-    const c = document.createElement('canvas'); c.width = el.naturalWidth || 530; c.height = el.naturalHeight || 171; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(el, 0, 0, c.width, c.height);
-    this.img = {data: atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]), w: c.width, h: c.height};
-    this.ops.push(`q ${this._n(w*this.k)} 0 0 ${this._n(h*this.k)} ${this._X(x)} ${this._Y(y + h)} cm /Im1 Do Q`); }
+  addImage(el, _f, x, y, w, h, crop) { // imagen → JPEG (fondo blanco) embebido con DCTDecode; crop = [sx, sy, sw, sh] en px de la imagen
+    const key = (el.src || '').length + ':' + (el.src || '').slice(-40) + ':' + (crop ? crop.join(',') : '');
+    let i = this.imgs.findIndex(m => m.key === key);
+    if (i < 0) { const sw = crop ? crop[2] : (el.naturalWidth || 530), sh = crop ? crop[3] : (el.naturalHeight || 171), sc = crop ? 4 : 1;
+      const c = document.createElement('canvas'); c.width = sw*sc; c.height = sh*sc; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      if (crop) g.drawImage(el, crop[0], crop[1], sw, sh, 0, 0, c.width, c.height); else g.drawImage(el, 0, 0, c.width, c.height);
+      this.imgs.push({key, data: atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]), w: c.width, h: c.height}); i = this.imgs.length - 1; }
+    this.ops.push(`q ${this._n(w*this.k)} 0 0 ${this._n(h*this.k)} ${this._X(x)} ${this._Y(y + h)} cm /Im${i + 1} Do Q`); }
   setProperties(m) { this.meta = m; }
   output() {
-    const content = this.ops.join('\n'), objs = [];
+    const objs = [], nI = this.imgs.length, p0 = 7 + nI;   // 1 catálogo, 2 páginas, 3-6 fuentes, imágenes, luego página + contenido por hoja, info al final
     objs.push('<< /Type /Catalog /Pages 2 0 R >>');
-    objs.push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-    objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >>${this.img ? ' /XObject << /Im1 9 0 R >>' : ''} >> /Contents 4 0 R >>`);
-    objs.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    objs.push(`<< /Type /Pages /Kids [${this.pages.map((_, i) => (p0 + 2*i) + ' 0 R').join(' ')}] /Count ${this.pages.length} >>`);
     ['Helvetica', 'Helvetica-Bold', 'Courier', 'Courier-Bold'].forEach(f => objs.push(`<< /Type /Font /Subtype /Type1 /BaseFont /${f} /Encoding /WinAnsiEncoding >>`));
-    if (this.img) objs.push(`<< /Type /XObject /Subtype /Image /Width ${this.img.w} /Height ${this.img.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${this.img.data.length} >>\nstream\n${this.img.data}\nendstream`);
+    this.imgs.forEach(m => objs.push(`<< /Type /XObject /Subtype /Image /Width ${m.w} /Height ${m.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${m.data.length} >>\nstream\n${m.data}\nendstream`));
+    const xo = nI ? ` /XObject << ${this.imgs.map((_, i) => `/Im${i + 1} ${7 + i} 0 R`).join(' ')} >>` : '';
+    this.pages.forEach((ops, i) => { const content = ops.join('\n');
+      objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >>${xo} >> /Contents ${p0 + 2*i + 1} 0 R >>`);
+      objs.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`); });
     objs.push(`<< /Title (${this._esc(this.meta.title || '')}) /Author (${this._esc(this.meta.author || '')}) /Producer (POWER - ING Estructural) >>`);
     let out = '%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'; const off = [];
     objs.forEach((o, i) => { off.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
@@ -2428,6 +2443,215 @@ function docSalida(kind) {
     if (navigator.canShare && navigator.canShare({files: [probe]})) { const sb = host.querySelector('#dShare'); sb.hidden = false;
       sb.onclick = conPDF(async b => { const f = new File([b], nom, {type: 'application/pdf'}); try { await navigator.share({files: [f], title: asunto}); } catch (e) { if (e.name !== 'AbortError') { toast('No se pudo compartir; use «Descargar PDF»'); } } }); } } catch (e) {}
   getBlob().catch(() => {});   // prepara el PDF de inmediato
+}
+/* ------------------------------------------------------------------ Estado de pago (EP) para el cliente
+   Todo sale de POWER: datos del proyecto, OC, alcances (ítems de la cotización vigente, ponderados por su valor),
+   % de avance acumulado por alcance (ficha del proyecto) y facturas/boletas anteriores.
+   El documento va solo en UF; los pesos se muestran solo en pantalla, como referencia para ING. */
+const EP_ICO = [17, 18, 131, 134];   // recorte del ícono dentro del logo (px del PNG 530×171)
+const pc1 = n => (Math.round((n || 0) * 10) / 10).toLocaleString('es-CL', {maximumFractionDigits: 1}) + ' %';
+function epAlcances(p) {
+  const c = cotVigente(p);
+  if (c && Array.isArray(c.items)) {
+    const L = c.items.map((it, i) => ({k: 'i' + i, n: String(it.n || '').trim().replace(/\s+/g, ' '), v: (parseFloat(it.hi) || 0) * (parseFloat(c.tIng) || 0) + (parseFloat(it.hp) || 0) * (parseFloat(c.tProy) || 0)})).filter(x => x.n);
+    const tot = L.reduce((a, x) => a + x.v, 0);
+    if (L.length && tot > 0) return {cot: c, global: false, items: L.map(x => ({k: x.k, n: x.n, w: x.v / tot}))};
+  }
+  return {cot: c, global: true, items: [{k: '_', n: projName(p), w: 1}]};
+}
+// N° del EP: correlativo general y año del código del proyecto (SIG-NN-NNN-AA → NNN-AA) + N° de EP del proyecto
+const epNumBase = p => { const s = String(p.codigo || '').split('-'); return s.length === 4 ? s[2] + '-' + s[3] : String(p.codigo || ''); };
+function epCalc(p, av, obs) {
+  const fecha = hoyCL(), prev = (p.eps || []).filter(e => e.fecha !== fecha), ant = prev.length ? (prev[prev.length - 1].av || {}) : {};
+  const A = epAlcances(p), M = p.montoUF || 0, isF = p.documento === 'F';
+  const rows = A.items.map(it => { const pa = +ant[it.k] || 0, x = av && av[it.k] != null && av[it.k] !== '' ? +av[it.k] : pa, v = M * it.w;
+    return {...it, val: v, pa, pc: x, pp: x - pa, ej: v * x / 100}; });
+  const ej = rows.reduce((a, r) => a + r.ej, 0), ejAnt = rows.reduce((a, r) => a + r.val * r.pa / 100, 0);
+  const docs = [...S.facturas.filter(f => f.proyectoId === p.id && f.estado !== 'Anulada').map(f => ({...f, t: 'Factura'})),
+                ...S.boletas.filter(b => b.proyectoId === p.id && b.estado !== 'Anulada').map(b => ({...b, t: 'Boleta'}))].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const B = docs.reduce((a, d) => a + (d.montoUF || 0), 0), C = ej - B, iv = P().iva, r = isF ? 0 : rateFor(+fecha.slice(0, 4));
+  return {p, fecha, n: prev.length + 1, num: epNumBase(p) + '-' + (prev.length + 1), rows, global: A.global, cot: A.cot, M, ej, avAc: M ? ej / M * 100 : 0, avAnt: M ? ejAnt / M * 100 : 0,
+    docs, B, C, isF, iv, neto: C / (1 + iv), ivaUF: C - C / (1 + iv), r, ret: C * r, liq: C - C * r, saldo: M - ej, obs: (obs || '').trim(), av: Object.fromEntries(rows.map(x => [x.k, x.pc]))};
+}
+// --- ficha del proyecto: % de avance acumulado por alcance y observaciones
+function epFichaHtml(r) {
+  const E = epCalc(proyById(r.id) || r, r.epAv || {}), av = r.epAv || {};
+  const nv = x => String(x).replace('.', ',');
+  return `<div class="epb full"><div class="rt">Estado de pago — % de avance acumulado por alcance</div>
+    <table class="ept"><thead><tr><th>Alcance</th><th class="n">Valor (UF)</th><th class="n">EP anterior</th><th class="n">Avance actual</th></tr></thead><tbody>
+    ${E.rows.map(x => `<tr><td>${esc(x.n)}</td><td class="n">${uf(x.val)}</td><td class="n">${pc1(x.pa)}</td><td class="n"><input class="ep-pct" data-k="${x.k}" data-noupper inputmode="decimal" value="${av[x.k] != null ? nv(av[x.k]) : ''}" placeholder="${nv(x.pa)}"> %</td></tr>`).join('')}
+    </tbody></table>
+    ${E.global ? '<div class="warnt">La cotización del proyecto no tiene ítems con valor: se usa un solo % para todo el proyecto.</div>' : ''}
+    <label>Observaciones del estado de pago (opcional)<textarea id="e-epObs" data-noupper rows="2">${esc(r.epObs || '')}</textarea></label>
+    <div id="epSum" class="tercsum"></div>
+    <div><button type="button" class="btn" id="bEP">📄 Emitir estado de pago</button></div></div>`;
+}
+function leerEP() { const o = {}; document.querySelectorAll('.ep-pct').forEach(i => { const v = numIn(i.value); if (v != null) o[i.dataset.k] = v; }); return o; }
+function wireEP(rec) {
+  const box = $('#epSum'); if (!box) return;
+  const cur = () => proyById(rec.id) || rec;
+  const pinta = () => { const av = leerEP(), malo = Object.values(av).some(v => v < 0 || v > 100), E = epCalc(cur(), av);
+    box.innerHTML = malo ? '<span class="warnt">El avance debe estar entre 0 y 100 %.</span>'
+      : `EP N° <b>${esc(E.num)}</b> · ejecutado ${uf(E.ej)} UF (${pc1(E.avAc)}) · anteriores ${uf(E.B)} UF · <b>a pagar ${uf(E.C)} UF</b>
+         <span class="muted">≈ ${clp(E.C * P().ufRef)} con la UF del día (${clp2(P().ufRef)}); los pesos no van en el documento.</span>${E.C < 0 ? '<br><span class="warnt">Lo facturado supera lo ejecutado: revise el avance.</span>' : ''}${E.rows.some(x => x.pp < 0) ? '<br><span class="warnt">Hay alcances con avance menor al del estado de pago anterior.</span>' : ''}`; };
+  document.querySelectorAll('.ep-pct').forEach(i => i.addEventListener('input', pinta)); pinta();
+  $('#bEP').onclick = () => { const av = leerEP();
+    if (Object.values(av).some(v => v < 0 || v > 100)) return toast('El avance debe estar entre 0 y 100 %');
+    const E = epCalc(cur(), av, val('epObs')); if (!(E.M > 0)) return toast('El proyecto no tiene monto en UF');
+    epSalida(E); };
+}
+// --- registro del EP emitido en el proyecto (al descargar, guardar o enviar el PDF). El mismo día se reemplaza, no se duplica.
+async function epRegistrar(E) {
+  const p = proyById(E.p.id) || E.p, {id, ...old} = p;
+  const eps = (p.eps || []).filter(e => e.fecha !== E.fecha).concat([{n: E.n, num: E.num, fecha: E.fecha, av: E.av, aPagarUF: Math.round(E.C * 10000) / 10000, obs: E.obs}]);
+  await put('proyectos', id, {...old, montoUF: p._cot ? p._orig.montoUF : p.montoUF, documento: p._cot ? p._orig.documento : p.documento, eps, epAv: E.av, epObs: E.obs});
+}
+// --- PDF del estado de pago: hoja tipo ING (encabezado con logo, pie, firma), tamaño Carta, solo UF
+async function epPDF(E) {
+  const doc = new PDFLite(), p = E.p, logo = document.querySelector('img.logo');
+  const X0 = 15.9, X1 = 190.9, W = X1 - X0, YB = 279.4 - 19, BL = [31, 56, 100], BL2 = [46, 83, 149], GR = [89, 89, 89], BD = [166, 166, 166], LF = [242, 245, 250];
+  const st = {y: 0}, T = pdfTxt;
+  const fit = (t, w) => { t = T(t); while (t.length > 4 && doc.width(t) > w) t = t.slice(0, -4) + '...'; return t; };
+  const head = () => {
+    if (logo && logo.complete) { try { doc.addImage(logo, 'JPEG', X0, 6, 60, 19.4); } catch (e) {} }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...BL); doc.text(T('ESTADO DE PAGO N° ' + E.num), X1, 13, {align: 'right'});
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text(fit(projName(p), 105), X1, 17.2, {align: 'right'});
+    doc.text(fit(`${mandCorto(p.mandante)} · ${p.codigo} · Rev. 0 · ${fdate(E.fecha)}`, 105), X1, 21.2, {align: 'right'});
+    doc.setDrawColor(...BL); doc.setLineWidth(0.5); doc.line(X0, 26.5, X1, 26.5); };
+  const nueva = () => { doc.addPage(); head(); st.y = 33; };
+  const sec = (t, x = X0, w = W, s = st) => { if (s.y + 16 > YB) nueva(); doc.setFillColor(...BL); doc.rect(x, s.y, w, 6, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255); doc.text(T(t), x + 2, s.y + 4.2); s.y += 6; };
+  // tabla: cols = anchos (mm) y alineación; fila = {c: [celdas], h: cabecera, b: negrita, f: fondo, wt: texto blanco}; celda = texto o {t, span, b, f, al}
+  const tabla = (cols, filas, x = X0, s = st) => { let cab = null;
+    const dib = fila => { const fs = fila.h ? 7.8 : 8.6, lh = fs * 1.15 / doc.k; let ci = 0;
+      const cel = fila.c.map(c => { const o = typeof c === 'object' && c !== null ? c : {t: c}, span = o.span || 1, w = cols.slice(ci, ci + span).reduce((a, k) => a + k.w, 0), al = o.al || (fila.h ? 'c' : cols[ci].al || 'l'), cx = x + cols.slice(0, ci).reduce((a, k) => a + k.w, 0); ci += span;
+        doc.setFont('helvetica', fila.h || fila.b || o.b ? 'bold' : 'normal'); doc.setFontSize(fs); return {...o, w, al, cx, ls: doc.splitTextToSize(T(o.t ?? ''), w - 3)}; });
+      const rh = Math.max(...cel.map(c => c.ls.length)) * lh + 2.6;
+      if (s.y + rh > YB) { nueva(); if (cab && !fila.h) dib(cab); }
+      cel.forEach(c => { const f = c.f || fila.f || (fila.h ? LF : null);
+        if (f) { doc.setFillColor(...f); doc.rect(c.cx, s.y, c.w, rh, 'F'); }
+        doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(c.cx, s.y, c.w, rh, 'S');
+        doc.setFont('helvetica', fila.h || fila.b || c.b ? 'bold' : 'normal'); doc.setFontSize(fs);
+        if (fila.wt) doc.setTextColor(255); else if (fila.h) doc.setTextColor(...BL); else doc.setTextColor(0);
+        const yb = s.y + (rh - c.ls.length * lh) / 2 + fs * 0.75 / doc.k;
+        doc.text(c.ls, c.al === 'r' ? c.cx + c.w - 1.5 : c.al === 'c' ? c.cx + c.w / 2 : c.cx + 1.5, yb, {align: c.al === 'r' ? 'right' : c.al === 'c' ? 'center' : undefined}); });
+      s.y += rh; };
+    filas.forEach(f => { if (f.h) cab = f; dib(f); }); };
+  const nota = (t, s = st, x = X0, w = W) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...GR); const ls = doc.splitTextToSize(T(t), w); doc.text(ls, x, s.y + 3.2); s.y += ls.length * 3.2 + 1.6; };
+  const firma = (fx, x1, x2, y) => epFirma(doc, logo, BL, fx, x1, x2, y), fin = () => epPie(doc, E, X0, X1, BL, GR);
+  head(); st.y = 36;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...BL);
+  const tt = T('ESTADO DE PAGO N° ' + E.num), tw = doc.width(tt), xc = (X0 + X1) / 2;
+  doc.text(tt, xc, st.y + 5, {align: 'center'}); doc.setDrawColor(...BL); doc.setLineWidth(0.45); doc.line(xc - tw / 2, st.y + 6.3, xc + tw / 2, st.y + 6.3);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...BL2); doc.text(T(`Fecha de emisión: ${fdate(E.fecha)} · Proyecto ${p.codigo}`), xc, st.y + 11.8, {align: 'center'});
+  st.y += 16;
+  const K = t => ({t, b: true, f: LF}), c = E.cot;
+  sec('1. DATOS DEL PROYECTO');
+  tabla([{w: 36}, {w: 68}, {w: 38}, {w: 33}], [
+    {c: [K('Mandante'), p.mandante || '-', K('RUT'), rutDe(p.mandante) || '-']},
+    {c: [K('Proyecto'), {t: projName(p), span: 3}]},
+    {c: [K('Código ING'), p.codigo || '-', K('Planta / sede'), p.planta || '-']},
+    {c: [K('Contacto'), TITLE(p.contacto || '') || '-', K('Cotización'), c ? `${c.numero || '-'}${c.rev ? ' Rev. ' + c.rev : ''}` : '-']},
+    {c: [K('Documento tributario'), E.isF ? 'Factura ING Estructural' : 'Boleta de honorarios Germán Aguilera', K('Entrega comprometida'), fdate(p.entrega) || '-']}]);
+  st.y += 4;
+  sec('2. ORDEN DE COMPRA');
+  tabla([{w: 12, al: 'c'}, {w: 38, al: 'c'}, {w: 26, al: 'c'}, {w: 69}, {w: 30, al: 'r'}], [
+    {h: true, c: ['Ítem', 'N° OC / OS / ODC', 'Fecha emisión', 'Alcance cubierto', 'Monto (UF)']},
+    {c: ['1', p.oc || '-', fdate(p.ocFecha) || '-', p.glosaFact || projName(p), uf(E.M)]},
+    {b: true, f: LF, c: [{t: 'TOTAL CONTRATADO', span: 4, al: 'r'}, uf(E.M)]}]);
+  const refs = [['HES', p.hes], ['HAS', p.has], ['WE', p.we]].filter(x => x[1]).map(x => x[0] + ' ' + x[1]).join(' · ');
+  nota((refs ? 'Referencias del cliente: ' + refs + '. ' : '') + (E.isF ? 'Montos en UF, IVA incluido.' : 'Montos en UF, bruto (boleta de honorarios).'));
+  st.y += 2.5;
+  sec('3. ALCANCES Y ESTADO DE AVANCE');
+  tabla([{w: 11, al: 'c'}, {w: 60}, {w: 21, al: 'r'}, {w: 20, al: 'c'}, {w: 20, al: 'c'}, {w: 20, al: 'c'}, {w: 23, al: 'r'}], [
+    {h: true, c: ['Ítem', 'Alcance', 'Valor (UF)', 'Avance anterior', 'Avance actual', 'Avance del período', 'Ejecutado acum. (UF)']},
+    ...E.rows.map((r, i) => ({c: [String(i + 1), r.n, uf(r.val), pc1(r.pa), pc1(r.pc), pc1(r.pp), uf(r.ej)]})),
+    {b: true, f: LF, c: [{t: 'TOTAL', span: 2, al: 'r'}, uf(E.M), pc1(E.avAnt), pc1(E.avAc), pc1(E.avAc - E.avAnt), uf(E.ej)]}]);
+  st.y += 4;
+  // 4 (resumen) y 5-6 (anteriores, observaciones) lado a lado
+  const res = [{h: true, c: ['Concepto', 'Monto (UF)']},
+    {c: ['Monto total contratado', uf(E.M)]}, {c: ['Avance acumulado', {t: pc1(E.avAc), al: 'r'}]},
+    {c: ['(A) Monto acumulado ejecutado', uf(E.ej)]}, {c: ['(B) Estados de pago anteriores', uf(E.B)]},
+    {b: true, wt: true, f: BL, c: ['(C) A PAGAR ESTE ESTADO (A - B)', uf(E.C)]},
+    ...(E.isF ? [{c: [`Neto (C / ${(1 + E.iv).toLocaleString('es-CL')})`, uf(E.neto)]}, {c: [`IVA ${pct(E.iv)}`, uf(E.ivaUF)]}, {b: true, f: LF, c: ['TOTAL A PAGAR', uf(E.C)]}]
+              : [{c: ['Bruto', uf(E.C)]}, {c: [`Retención ${pct(E.r)}`, uf(E.ret)]}, {b: true, f: LF, c: ['LÍQUIDO A PAGAR', uf(E.liq)]}]),
+    {c: ['Saldo por ejecutar', uf(E.saldo)]}];
+  const ant = [{h: true, c: ['N°', 'Fecha', 'Documento', 'Monto (UF)', 'Estado']},
+    ...(E.docs.length ? E.docs.map((d, i) => ({c: [String(i + 1), fdate(d.fecha) || '-', `${d.t} ${d.numero || ''}`, uf(d.montoUF), d.estado || '-']})) : [{c: [{t: 'Sin documentos emitidos', span: 5, al: 'c'}]}]),
+    {b: true, f: LF, c: [{t: 'TOTAL (B)', span: 3, al: 'r'}, uf(E.B), '']}];
+  const wl = 86, wr = W - wl - 5, xr = X0 + wl + 5, hL = 6 + res.length * 6.4, hR = 6 + ant.length * 6.4 + (E.obs ? 14 + E.obs.length / 4 : 0);
+  if (Math.max(hL, hR) < YB - 36) { if (st.y + Math.max(hL, hR) > YB) nueva();
+    const sL = {y: st.y}, sR = {y: st.y};
+    sec('4. RESUMEN DEL ESTADO DE PAGO', X0, wl, sL); tabla([{w: 58}, {w: 28, al: 'r'}], res, X0, sL);
+    sec('5. ESTADOS DE PAGO ANTERIORES', xr, wr, sR); tabla([{w: 8, al: 'c'}, {w: 17, al: 'c'}, {w: 22, al: 'c'}, {w: 18, al: 'r'}, {w: wr - 65, al: 'c'}], ant, xr, sR);
+    if (E.obs) { sR.y += 4; sec('6. OBSERVACIONES', xr, wr, sR); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6); doc.setTextColor(0);
+      const ls = doc.splitTextToSize(T(E.obs), wr - 3), h = ls.length * 3.45 + 3; doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(xr, sR.y, wr, h, 'S'); doc.text(ls, xr + 1.5, sR.y + 3.6); sR.y += h; }
+    st.y = Math.max(sL.y, sR.y);
+    const fy = Math.max(sR.y + 14, sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); return fin(); } }
+  else { sec('4. RESUMEN DEL ESTADO DE PAGO'); tabla([{w: 135}, {w: 40, al: 'r'}], res); st.y += 4;
+    sec('5. ESTADOS DE PAGO ANTERIORES'); tabla([{w: 12, al: 'c'}, {w: 30, al: 'c'}, {w: 60, al: 'c'}, {w: 35, al: 'r'}, {w: 38, al: 'c'}], ant);
+    if (E.obs) { st.y += 4; sec('6. OBSERVACIONES'); tabla([{w: W}], [{c: [E.obs]}]); } }
+  st.y += 16; if (st.y + 16 > YB) { nueva(); st.y += 16; }
+  firma(X1 - 36, X1 - 72, X1, st.y);
+  return fin();
+}
+function epFirma(doc, logo, BL, fx, x1, x2, y) {   // firma: nombre, título y logo pequeño delante de «ING Estructural»
+  doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(x1, y, x2, y);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); doc.text(pdfTxt('J. GERMÁN AGUILERA HAFNER'), fx, y + 4.6, {align: 'center'});
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text('Ingeniero Civil', fx, y + 9, {align: 'center'});
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...BL); const iw = doc.width('ING Estructural'), xs = fx - (4.4 + 1.4 + iw) / 2;
+  if (logo && logo.complete) { try { doc.addImage(logo, 'JPEG', xs, y + 10.6, 4.3, 4.4, EP_ICO); } catch (e) {} }
+  doc.text('ING Estructural', xs + 5.8, y + 14.1);
+}
+function epPie(doc, E, X0, X1, BL, GR) {   // pie en todas las páginas
+  const nP = doc.pages.length;
+  for (let i = 0; i < nP; i++) { doc.setPage(i); doc.setDrawColor(...BL); doc.setLineWidth(0.4); doc.line(X0, 279.4 - 13, X1, 279.4 - 13);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...BL); doc.text(pdfTxt('ING ESTRUCTURAL — Proyectos Civiles e Industriales'), X0, 279.4 - 9);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...GR); doc.text(`Página ${i + 1} de ${nP}`, X1, 279.4 - 9, {align: 'right'}); }
+  doc.setProperties({title: epNombrePDF(E).replace(/\.pdf$/, ''), author: 'ING Estructural'});
+  return doc.output();
+}
+const epNombrePDF = E => `Estado_de_pago_${E.num}_${E.p.codigo}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
+function epSalida(E) {
+  const nom = epNombrePDF(E), p = E.p, asunto = `Estado de pago N° ${E.num} - ${p.codigo} ${projName(p)}`;
+  const nota = `Estimados:\n\nAdjunto estado de pago N° ${E.num} del proyecto ${p.codigo} ${projName(p)} (archivo ${nom}).\n\nSaludos cordiales,\nJ. Germán Aguilera Hafner\nING Estructural`;
+  const carpOK = LOCAL && FS.supported && FS.dir;
+  let host = document.getElementById('docOut'); if (host) host.remove();
+  host = document.createElement('div'); host.id = 'docOut';
+  host.innerHTML = `<div class="docout-bg"><div class="docout-box ep">
+    <div class="docout-bar"><b>Estado de pago N° ${esc(E.num)}</b><span style="flex:1"></span>
+      <button class="btn" id="dShare" hidden>📤 Enviar PDF…</button>
+      <button class="btn" id="dPdf">⬇ Descargar PDF</button>
+      ${carpOK ? '<button class="btn ghost" id="dCarp">📁 Guardar PDF en carpeta del cliente</button>' : ''}
+      <button class="btn ghost" id="dMail">✉ Correo con PDF</button>
+      <button class="btn ghost" id="dClose">Cerrar</button></div>
+    <div class="small" style="margin-bottom:8px">A pagar: <b>${uf(E.C)} UF</b> <span class="muted">· referencia en pesos (no va en el documento): ${clp(E.C * P().ufRef)} con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''}</span></div>
+    <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;height:72vh;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
+    <div class="small muted" id="dMsg" style="margin-top:8px">El estado de pago queda registrado en el proyecto al descargarlo, guardarlo o enviarlo (si lo vuelve a emitir hoy, se reemplaza y conserva el número).</div>
+  </div></div>`;
+  document.body.appendChild(host);
+  const msg = t => { host.querySelector('#dMsg').textContent = t; };
+  let blobP = null, url = null, reg = false;
+  const getBlob = () => (blobP = blobP || Promise.resolve().then(() => epPDF(E)).catch(e => { blobP = null; throw e; }));
+  const registrar = async () => { if (reg || VISOR()) return; try { await epRegistrar(E); reg = true; toast(`Estado de pago N° ${E.num} registrado en ${p.codigo}`); } catch (e) { toast('No se pudo registrar el estado de pago (' + (e.code || e.message) + ')'); } };
+  const conPDF = fn => async () => { try { const b = await getBlob(); if (await fn(b)) await registrar(); } catch (e) { msg('No se pudo generar el PDF: ' + (e.message || e)); } };
+  const cerrar = () => { host.remove(); if (url) URL.revokeObjectURL(url); };
+  host.querySelector('#dClose').onclick = cerrar;
+  host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
+  host.querySelector('#dPdf').onclick = conPDF(async b => { const ok = await descargarBlob(b, nom); if (ok) msg('PDF descargado: ' + nom); return ok; });
+  host.querySelector('#dMail').onclick = conPDF(async b => { if (!(await descargarBlob(b, nom))) return false; const a = document.createElement('a'); a.href = 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(nota); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); msg('PDF descargado (' + nom + '). Adjúntelo al correo que se abrió.'); return true; });
+  const cb = host.querySelector('#dCarp');
+  if (cb) cb.onclick = conPDF(async b => {
+    if (!(await ensurePerm(FS.dir))) { toast('Sin permiso para escribir en la carpeta'); return false; }
+    const dir = await FS.dir.getDirectoryHandle(p.carpeta || dirName(p.mandante), {create: true});
+    let n = nom, k = 1; const base = nom.replace(/\.pdf$/, '');
+    while (true) { try { await dir.getFileHandle(n); n = `${base}_${++k}.pdf`; } catch (e) { break; } }
+    const h = await dir.getFileHandle(n, {create: true}); const w = await h.createWritable(); await w.write(b); await w.close();
+    msg('PDF guardado en ' + FS.dir.name + ' / ' + dir.name + ' / ' + n); return true; });
+  try { const probe = new File([new Blob(['%PDF'], {type: 'application/pdf'})], nom, {type: 'application/pdf'});
+    if (navigator.canShare && navigator.canShare({files: [probe]})) { const sb = host.querySelector('#dShare'); sb.hidden = false;
+      sb.onclick = conPDF(async b => { try { await navigator.share({files: [new File([b], nom, {type: 'application/pdf'})], title: asunto}); return true; } catch (e) { if (e.name !== 'AbortError') toast('No se pudo compartir; use «Descargar PDF»'); return false; } }); } } catch (e) {}
+  getBlob().then(b => { url = URL.createObjectURL(b); host.querySelector('#epView').src = url; }).catch(e => msg('No se pudo generar el PDF: ' + (e.message || e)));
 }
 const TIPOS_COBRO = ['Total', 'Anticipo', 'Estado de pago', 'Saldo final'];
 function saldoProy(p, rec) { // saldo por facturar sin contar el documento que se edita
@@ -2585,6 +2809,8 @@ async function save(kind, rec) {
         base.carpeta = dirName(mandante);
       }
       if (rec) { const {id, ...old} = rec; let extra = {};
+        const cur = proyById(rec.id) || rec; if (cur.eps) base.eps = cur.eps;   // estados de pago emitidos (pueden haberse registrado con la ficha abierta)
+        if (document.getElementById('e-epObs')) { base.epAv = leerEP(); base.epObs = (val('epObs') || '').trim(); }
         if (mandante !== rec.mandante || anio !== rec.anio) { extra = {...nextCodigo(mandante, anio, rec.id, anio === rec.anio ? rec.nGen : 0), historial: [...(rec.historial || []), {codigo: rec.codigo, fecha: today(), motivo: 'Cambio de mandante o año'}]}; }
         await put('proyectos', rec.id, {...old, ...base, ...extra});
         const nPag = estado === 'Pagado' && rec.estado !== 'Pagado' ? await pagarDocsProy(rec.id) : 0;   // al marcar el proyecto como pagado, sus documentos pendientes quedan pagados
