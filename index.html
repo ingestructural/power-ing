@@ -2303,10 +2303,12 @@ class PDFLite {
   line(x1, y1, x2, y2) { this.ops.push(`${this._X(x1)} ${this._Y(y1)} m ${this._X(x2)} ${this._Y(y2)} l S`); }
   roundedRect(x, y, w, h, r, _r, st) { const K = 0.5523*r, P = (a, b) => `${this._X(a)} ${this._Y(b)}`;
     this.ops.push(`${P(x + r, y)} m ${P(x + w - r, y)} l ${P(x + w - r + K, y)} ${P(x + w, y + r - K)} ${P(x + w, y + r)} c ${P(x + w, y + h - r)} l ${P(x + w, y + h - r + K)} ${P(x + w - r + K, y + h)} ${P(x + w - r, y + h)} c ${P(x + r, y + h)} l ${P(x + r - K, y + h)} ${P(x, y + h - r + K)} ${P(x, y + h - r)} c ${P(x, y + r)} l ${P(x, y + r - K)} ${P(x + r - K, y)} ${P(x + r, y)} c h ${st === 'F' ? 'f' : 'S'}`); }
-  addImageAlpha(el, x, y, w, h) { // imagen con transparencia (firma escaneada): JPEG del color + máscara de opacidad (SMask), así no tapa lo que hay debajo
+  addImageAlpha(el, x, y, w, h, grosor = 0) { // imagen con transparencia (firma escaneada): JPEG del color + máscara de opacidad (SMask), así no tapa lo que hay debajo
     const k = Math.min(1, 900 / Math.max(el.naturalWidth || 1, el.naturalHeight || 1)), cw = Math.max(1, Math.round((el.naturalWidth || 1) * k)), ch = Math.max(1, Math.round((el.naturalHeight || 1) * k));
-    const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d'); g.drawImage(el, 0, 0, cw, ch);
-    const px = g.getImageData(0, 0, cw, ch).data; let a = ''; for (let i = 3; i < px.length; i += 4) a += String.fromCharCode(px[i]);
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d');
+    if (grosor > 0) { for (let dx = -grosor; dx <= grosor; dx += 0.5) for (let dy = -grosor; dy <= grosor; dy += 0.5) if (dx * dx + dy * dy <= grosor * grosor) g.drawImage(el, dx, dy, cw, ch); }   // trazo más grueso y más opaco: la imagen repetida en un disco de radio «grosor» px
+    else g.drawImage(el, 0, 0, cw, ch);
+    const px = g.getImageData(0, 0, cw, ch).data; let a = ''; for (let i = 3; i < px.length; i += 4) a += String.fromCharCode(grosor > 0 ? Math.min(255, Math.round(px[i] * 1.35)) : px[i]);
     g.globalCompositeOperation = 'destination-over'; g.fillStyle = '#fff'; g.fillRect(0, 0, cw, ch);
     this.imgs.push({key: 'a' + this.imgs.length, data: atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]), w: cw, h: ch, alpha: a});
     this.ops.push(`q ${this._n(w*this.k)} 0 0 ${this._n(h*this.k)} ${this._X(x)} ${this._Y(y + h)} cm /Im${this.imgs.length} Do Q`); }
@@ -2600,11 +2602,11 @@ async function epPDF(E) {
     if (E.obs) { sR.y += 4; sec('6. OBSERVACIONES', xr, wr, sR); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6); doc.setTextColor(0);
       const ls = doc.splitTextToSize(T(E.obs), wr - 3), h = ls.length * 3.45 + 3; doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(xr, sR.y, wr, h, 'S'); doc.text(ls, xr + 1.5, sR.y + 3.6); sR.y += h; }
     st.y = Math.max(sL.y, sR.y);
-    const fy = Math.max(sR.y + (fimg ? 24 : 14), sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); return fin(); } }
+    const fy = Math.max(sR.y + (fimg ? 30 : 14), sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); return fin(); } }
   else { sec('4. RESUMEN DEL ESTADO DE PAGO'); tabla([{w: 135}, {w: 40, al: 'r'}], res); st.y += 4;
     sec('5. ESTADOS DE PAGO ANTERIORES'); tabla([{w: 12, al: 'c'}, {w: 30, al: 'c'}, {w: 60, al: 'c'}, {w: 35, al: 'r'}, {w: 38, al: 'c'}], ant);
     if (E.obs) { st.y += 4; sec('6. OBSERVACIONES'); tabla([{w: W}], [{c: [E.obs]}]); } }
-  st.y += fimg ? 26 : 16; if (st.y + 16 > YB) { nueva(); st.y += fimg ? 26 : 16; }
+  st.y += fimg ? 32 : 16; if (st.y + 16 > YB) { nueva(); st.y += fimg ? 32 : 16; }
   firma(X1 - 36, X1 - 72, X1, st.y);
   return fin();
 }
@@ -2613,8 +2615,8 @@ function epFirma(doc, logo, BL, fx, x1, x2, y, fimg) {   // firma: nombre centra
   doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); const nom = pdfTxt('J. GERMÁN AGUILERA HAFNER'), xl = fx - doc.width(nom) / 2;
   doc.text(nom, xl, y + 4.6);
   if (fimg) { const F = S.firmaCot, q = Object.assign({k: 1}, (F.ubic || {}).otros), r = F.w / F.h;   // firma escaneada sobre la línea, centrada en el nombre; respeta la escala ajustada en el Cotizador
-    let h = 22 * q.k, w = h * r; const wm = Math.min(62 * q.k, x2 - x1 + 6); if (w > wm) { w = wm; h = w / r; }
-    try { doc.addImageAlpha(fimg, fx - w / 2, y + 3 - h, w, h); } catch (e) {} }
+    let h = 30 * q.k, w = h * r; const wm = Math.min(78 * q.k, x2 - x1 + 14); if (w > wm) { w = wm; h = w / r; }
+    try { doc.addImageAlpha(fimg, fx - w / 2, y + 4 - h, w, h, 1.5); } catch (e) {} }
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(0); doc.text('Ingeniero Civil', xl, y + 9);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...BL);
   if (logo && logo.complete) { try { doc.addImage(logo, 'JPEG', xl, y + 10.6, 4.3, 4.4, EP_ICO); } catch (e) {} }
