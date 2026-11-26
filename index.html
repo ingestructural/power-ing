@@ -2562,7 +2562,7 @@ async function epPDF(E) {
   st.y += 11;
   const K = t => ({t, b: true, f: LF}), c = E.cot;
   sec('1. DATOS DEL PROYECTO');
-  tabla([{w: 36}, {w: 68}, {w: 38}, {w: 33}], [
+  tabla([{w: 36}, {w: 58}, {w: 37}, {w: 44}], [
     {c: [K('Mandante'), p.mandante || '-', K('RUT'), rutDe(p.mandante) || '-']},
     {c: [K('Proyecto'), {t: projName(p), span: 3}]},
     {c: [K('Código ING'), p.codigo || '-', K('Planta / sede'), p.planta || '-']},
@@ -2620,7 +2620,7 @@ function epFirma(doc, logo, BL, fx, x1, x2, y, fimg) {   // firma: nombre centra
   doc.text(nom, xl, y + 4.6);
   if (fimg) { const F = S.firmaCot, q = Object.assign({k: 1}, (F.ubic || {}).otros), r = F.w / F.h;   // firma escaneada sobre la línea, centrada en el nombre; respeta la escala ajustada en el Cotizador
     let h = 30 * q.k, w = h * r; const wm = Math.min(78 * q.k, x2 - x1 + 14); if (w > wm) { w = wm; h = w / r; }
-    try { doc.addImageAlpha(fimg, fx - w / 2, y + 4 - h, w, h, 1.5); } catch (e) {} }
+    try { doc.addImageAlpha(fimg, fx - w / 2, y + 7.5 - h, w, h, 1.5); } catch (e) {} }
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(0); doc.text('Ingeniero Civil', xl, y + 9);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...BL);
   if (logo && logo.complete) { try { doc.addImage(logo, 'JPEG', xl, y + 10.6, 4.3, 4.4, EP_ICO); } catch (e) {} }
@@ -2663,7 +2663,10 @@ function epSalida(E) {
       ${carpOK ? '<button class="btn ghost" id="dCarp">📁 Guardar PDF en carpeta del cliente</button>' : ''}
       <button class="btn ghost" id="dMail" title="Descarga un correo nuevo (.eml) con el PDF adjunto: al abrirlo se abre en Outlook">✉ Correo en Outlook</button>
       <button class="btn ghost" id="dClose">Cerrar</button></div>
-    <div class="small" style="margin-bottom:8px">A pagar: <b>${uf(E.C)} UF</b> <span class="muted">· referencia en pesos (no va en el documento): ${clp(E.C * P().ufRef)} con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''}</span></div>
+    <div style="margin-bottom:8px;padding:8px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline">
+      <span>${E.isF ? 'Total a pagar' : 'Líquido a pagar'}: <b>${uf(E.isF ? E.C : E.liq)} UF</b></span>
+      <span style="font-size:1.15rem">≈ <b>${clp((E.isF ? E.C : E.liq) * P().ufRef)}</b></span>
+      <span class="small muted">con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''} · solo en pantalla, no va en el PDF${E.isF ? '' : ` · bruto ${uf(E.C)} UF ≈ ${clp(E.C * P().ufRef)}`}</span></div>
     <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
     <div class="small muted" id="dMsg" style="margin-top:8px">El estado de pago queda registrado en el proyecto al descargarlo, guardarlo o enviarlo (si lo vuelve a emitir hoy, se reemplaza y conserva el número).</div>
   </div></div>`;
