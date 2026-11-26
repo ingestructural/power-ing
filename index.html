@@ -630,7 +630,8 @@ th.cen,td.cen{text-align:center!important}
 .epb .rt{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#2E5395}
 .ept{width:100%;border-collapse:collapse;font-size:.8rem} .ept th{font-size:.7rem;color:var(--muted);background:none;text-align:left;font-weight:600;text-transform:none;letter-spacing:0} .ept th,.ept td{padding:3px 4px;border-bottom:1px solid var(--line)}
 .ept .n{text-align:right;white-space:nowrap} .ept input{width:64px;text-align:right;padding:3px 5px}
-#docOut .docout-box.ep{max-width:900px}
+#docOut .docout-bg:has(.docout-box.ep){padding:8px} #docOut .docout-box.ep{max-width:none;width:min(1400px,100%);padding:10px 12px}
+#docOut .docout-box.ep #epView{height:calc(100vh - 150px);min-height:480px}
 .tercsum{font-size:.8rem} .tercsum .prop{color:var(--ok)} .warnt{color:#b45309;font-size:.74rem}
 td.prop{color:var(--ok);font-weight:700}
 .cobrar.pag{color:#c2410c;background:#ffedd5;border-color:#ea580c;margin-right:3px}
@@ -1331,6 +1332,7 @@ async function start() {
   }, e => toast('No se pudo leer ' + c + ': ' + e.code)));
   // cotizaciones del Cotizador (cotizador-ing.netlify.app): solo lectura en POWER, fuera de COLS para no tocar respaldos
   db.collection('cotizaciones').onSnapshot(snap => { S.cotizaciones = snap.docs.map(d => ({...d.data(), id: d.id})); render(); }, () => {});
+  db.collection('cotizador_config').onSnapshot(snap => { const d = snap.docs.find(x => x.id === 'firma'); S.firmaCot = d ? d.data() : null; }, () => {});
   db.collection('config').onSnapshot(snap => {
     snap.docs.forEach(d => { if (d.id === 'params') S.params = {...DEF_PARAMS, ...d.data()}; else S.imp[d.id] = d.data(); });
     S.loaded.config = true; syncUF(); pintarUF(); render();
@@ -2301,6 +2303,13 @@ class PDFLite {
   line(x1, y1, x2, y2) { this.ops.push(`${this._X(x1)} ${this._Y(y1)} m ${this._X(x2)} ${this._Y(y2)} l S`); }
   roundedRect(x, y, w, h, r, _r, st) { const K = 0.5523*r, P = (a, b) => `${this._X(a)} ${this._Y(b)}`;
     this.ops.push(`${P(x + r, y)} m ${P(x + w - r, y)} l ${P(x + w - r + K, y)} ${P(x + w, y + r - K)} ${P(x + w, y + r)} c ${P(x + w, y + h - r)} l ${P(x + w, y + h - r + K)} ${P(x + w - r + K, y + h)} ${P(x + w - r, y + h)} c ${P(x + r, y + h)} l ${P(x + r - K, y + h)} ${P(x, y + h - r + K)} ${P(x, y + h - r)} c ${P(x, y + r)} l ${P(x, y + r - K)} ${P(x + r - K, y)} ${P(x + r, y)} c h ${st === 'F' ? 'f' : 'S'}`); }
+  addImageAlpha(el, x, y, w, h) { // imagen con transparencia (firma escaneada): JPEG del color + máscara de opacidad (SMask), así no tapa lo que hay debajo
+    const k = Math.min(1, 900 / Math.max(el.naturalWidth || 1, el.naturalHeight || 1)), cw = Math.max(1, Math.round((el.naturalWidth || 1) * k)), ch = Math.max(1, Math.round((el.naturalHeight || 1) * k));
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d'); g.drawImage(el, 0, 0, cw, ch);
+    const px = g.getImageData(0, 0, cw, ch).data; let a = ''; for (let i = 3; i < px.length; i += 4) a += String.fromCharCode(px[i]);
+    g.globalCompositeOperation = 'destination-over'; g.fillStyle = '#fff'; g.fillRect(0, 0, cw, ch);
+    this.imgs.push({key: 'a' + this.imgs.length, data: atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]), w: cw, h: ch, alpha: a});
+    this.ops.push(`q ${this._n(w*this.k)} 0 0 ${this._n(h*this.k)} ${this._X(x)} ${this._Y(y + h)} cm /Im${this.imgs.length} Do Q`); }
   addImage(el, _f, x, y, w, h, crop) { // imagen → JPEG (fondo blanco) embebido con DCTDecode; crop = [sx, sy, sw, sh] en px de la imagen
     const key = (el.src || '').length + ':' + (el.src || '').slice(-40) + ':' + (crop ? crop.join(',') : '');
     let i = this.imgs.findIndex(m => m.key === key);
@@ -2315,11 +2324,14 @@ class PDFLite {
     objs.push('<< /Type /Catalog /Pages 2 0 R >>');
     objs.push(`<< /Type /Pages /Kids [${this.pages.map((_, i) => (p0 + 2*i) + ' 0 R').join(' ')}] /Count ${this.pages.length} >>`);
     ['Helvetica', 'Helvetica-Bold', 'Courier', 'Courier-Bold'].forEach(f => objs.push(`<< /Type /Font /Subtype /Type1 /BaseFont /${f} /Encoding /WinAnsiEncoding >>`));
-    this.imgs.forEach(m => objs.push(`<< /Type /XObject /Subtype /Image /Width ${m.w} /Height ${m.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${m.data.length} >>\nstream\n${m.data}\nendstream`));
+    let sm = p0 + 2 * this.pages.length; const masks = [];   // máscaras de opacidad: después de las páginas, antes de la info
+    this.imgs.forEach(m => { const s = m.alpha ? ` /SMask ${sm + masks.length} 0 R` : ''; if (m.alpha) masks.push(m);
+      objs.push(`<< /Type /XObject /Subtype /Image /Width ${m.w} /Height ${m.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode${s} /Length ${m.data.length} >>\nstream\n${m.data}\nendstream`); });
     const xo = nI ? ` /XObject << ${this.imgs.map((_, i) => `/Im${i + 1} ${7 + i} 0 R`).join(' ')} >>` : '';
     this.pages.forEach((ops, i) => { const content = ops.join('\n');
       objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >>${xo} >> /Contents ${p0 + 2*i + 1} 0 R >>`);
       objs.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`); });
+    masks.forEach(m => objs.push(`<< /Type /XObject /Subtype /Image /Width ${m.w} /Height ${m.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Length ${m.alpha.length} >>\nstream\n${m.alpha}\nendstream`));
     objs.push(`<< /Title (${this._esc(this.meta.title || '')}) /Author (${this._esc(this.meta.author || '')}) /Producer (POWER - ING Estructural) >>`);
     let out = '%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'; const off = [];
     objs.forEach((o, i) => { off.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
@@ -2538,7 +2550,8 @@ async function epPDF(E) {
       s.y += rh; };
     filas.forEach(f => { if (f.h) cab = f; dib(f); }); };
   const nota = (t, s = st, x = X0, w = W) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...GR); const ls = doc.splitTextToSize(T(t), w); doc.text(ls, x, s.y + 3.2); s.y += ls.length * 3.2 + 1.6; };
-  const firma = (fx, x1, x2, y) => epFirma(doc, logo, BL, fx, x1, x2, y), fin = () => epPie(doc, E, X0, X1, BL, GR);
+  const fimg = E.firmar ? await epFirmaImg() : null;
+  const firma = (fx, x1, x2, y) => epFirma(doc, logo, BL, fx, x1, x2, y, fimg), fin = () => epPie(doc, E, X0, X1, BL, GR);
   head(); st.y = 36;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...BL);
   const tt = T('ESTADO DE PAGO N° ' + E.num), tw = doc.width(tt), xc = (X0 + X1) / 2;
@@ -2587,22 +2600,31 @@ async function epPDF(E) {
     if (E.obs) { sR.y += 4; sec('6. OBSERVACIONES', xr, wr, sR); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6); doc.setTextColor(0);
       const ls = doc.splitTextToSize(T(E.obs), wr - 3), h = ls.length * 3.45 + 3; doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(xr, sR.y, wr, h, 'S'); doc.text(ls, xr + 1.5, sR.y + 3.6); sR.y += h; }
     st.y = Math.max(sL.y, sR.y);
-    const fy = Math.max(sR.y + 14, sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); return fin(); } }
+    const fy = Math.max(sR.y + (fimg ? 24 : 14), sL.y - 15); if (fy + 16 <= YB) { firma(xr + wr / 2, xr + 6, xr + wr - 6, fy); return fin(); } }
   else { sec('4. RESUMEN DEL ESTADO DE PAGO'); tabla([{w: 135}, {w: 40, al: 'r'}], res); st.y += 4;
     sec('5. ESTADOS DE PAGO ANTERIORES'); tabla([{w: 12, al: 'c'}, {w: 30, al: 'c'}, {w: 60, al: 'c'}, {w: 35, al: 'r'}, {w: 38, al: 'c'}], ant);
     if (E.obs) { st.y += 4; sec('6. OBSERVACIONES'); tabla([{w: W}], [{c: [E.obs]}]); } }
-  st.y += 16; if (st.y + 16 > YB) { nueva(); st.y += 16; }
+  st.y += fimg ? 26 : 16; if (st.y + 16 > YB) { nueva(); st.y += fimg ? 26 : 16; }
   firma(X1 - 36, X1 - 72, X1, st.y);
   return fin();
 }
-function epFirma(doc, logo, BL, fx, x1, x2, y) {   // firma: nombre, título y logo pequeño delante de «ING Estructural»
+function epFirma(doc, logo, BL, fx, x1, x2, y, fimg) {   // firma: nombre centrado bajo la línea; título y logo + «ING Estructural» alineados a la izquierda del nombre
   doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(x1, y, x2, y);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); doc.text(pdfTxt('J. GERMÁN AGUILERA HAFNER'), fx, y + 4.6, {align: 'center'});
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text('Ingeniero Civil', fx, y + 9, {align: 'center'});
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...BL); const iw = doc.width('ING Estructural'), xs = fx - (4.4 + 1.4 + iw) / 2;
-  if (logo && logo.complete) { try { doc.addImage(logo, 'JPEG', xs, y + 10.6, 4.3, 4.4, EP_ICO); } catch (e) {} }
-  doc.text('ING Estructural', xs + 5.8, y + 14.1);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); const nom = pdfTxt('J. GERMÁN AGUILERA HAFNER'), xl = fx - doc.width(nom) / 2;
+  doc.text(nom, xl, y + 4.6);
+  if (fimg) { const F = S.firmaCot, q = Object.assign({k: 1}, (F.ubic || {}).otros), r = F.w / F.h;   // firma escaneada sobre la línea, centrada en el nombre; respeta la escala ajustada en el Cotizador
+    let h = 22 * q.k, w = h * r; const wm = Math.min(62 * q.k, x2 - x1 + 6); if (w > wm) { w = wm; h = w / r; }
+    try { doc.addImageAlpha(fimg, fx - w / 2, y + 3 - h, w, h); } catch (e) {} }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(0); doc.text('Ingeniero Civil', xl, y + 9);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...BL);
+  if (logo && logo.complete) { try { doc.addImage(logo, 'JPEG', xl, y + 10.6, 4.3, 4.4, EP_ICO); } catch (e) {} }
+  doc.text('ING Estructural', xl + 5.8, y + 14.1);
 }
+// firma escaneada: la misma que carga el Cotizador (Firma → Cargar firma), guardada en POWER
+let epFirmaP = null;
+function epFirmaImg() { const F = S.firmaCot; if (!F || !F.png) return Promise.resolve(null);
+  if (!epFirmaP || epFirmaP.src !== F.png) { const im = new Image(); epFirmaP = new Promise(res => { im.onload = () => res(im); im.onerror = () => res(null); im.src = F.png; }); epFirmaP.src = F.png; }
+  return epFirmaP; }
 function epPie(doc, E, X0, X1, BL, GR) {   // pie en todas las páginas
   const nP = doc.pages.length;
   for (let i = 0; i < nP; i++) { doc.setPage(i); doc.setDrawColor(...BL); doc.setLineWidth(0.4); doc.line(X0, 279.4 - 13, X1, 279.4 - 13);
@@ -2611,22 +2633,33 @@ function epPie(doc, E, X0, X1, BL, GR) {   // pie en todas las páginas
   doc.setProperties({title: epNombrePDF(E).replace(/\.pdf$/, ''), author: 'ING Estructural'});
   return doc.output();
 }
+const blobB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+function epEml(subj, body, nombre, pdfB64) {   // mismo formato que el Cotizador: X-Unsent abre el mensaje como borrador nuevo en Outlook
+  const B = '----=_ep_' + Date.now().toString(36), u8 = t => { let s = ''; new TextEncoder().encode(t).forEach(c => s += String.fromCharCode(c)); return btoa(s); };
+  const lin = t => t.replace(/.{1,76}/g, '$&\r\n'), hdr = t => /^[\x20-\x7e]*$/.test(t) ? t : `=?UTF-8?B?${u8(t)}?=`;
+  return ['X-Unsent: 1', 'To: ', 'Cc: ingestructural@ingestructural.cl', 'Subject: ' + hdr(subj), 'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${B}"`, '',
+    '--' + B, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', lin(u8(body)),
+    '--' + B, `Content-Type: application/pdf; name="${nombre}"`, `Content-Disposition: attachment; filename="${nombre}"`, 'Content-Transfer-Encoding: base64', '', lin(pdfB64),
+    '--' + B + '--', ''].join('\r\n');
+}
 const epNombrePDF = E => `Estado_de_pago_${E.num}_${E.p.codigo}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
 function epSalida(E) {
   const nom = epNombrePDF(E), p = E.p, asunto = `Estado de pago N° ${E.num} - ${p.codigo} ${projName(p)}`;
-  const nota = `Estimados:\n\nAdjunto estado de pago N° ${E.num} del proyecto ${p.codigo} ${projName(p)} (archivo ${nom}).\n\nSaludos cordiales,\nJ. Germán Aguilera Hafner\nING Estructural`;
+  const nota = `Estimados:\n\nAdjunto estado de pago N° ${E.num} del proyecto ${p.codigo} ${projName(p)}.\n\nSaludos cordiales,\n\nJ. GERMÁN AGUILERA HAFNER\nIngeniero Civil\nING Estructural`;
   const carpOK = LOCAL && FS.supported && FS.dir;
   let host = document.getElementById('docOut'); if (host) host.remove();
   host = document.createElement('div'); host.id = 'docOut';
   host.innerHTML = `<div class="docout-bg"><div class="docout-box ep">
     <div class="docout-bar"><b>Estado de pago N° ${esc(E.num)}</b><span style="flex:1"></span>
       <button class="btn" id="dShare" hidden>📤 Enviar PDF…</button>
+      <button class="btn ghost" id="dFirma" aria-pressed="false" title="Agrega su firma escaneada (la misma del Cotizador) sobre la línea de firma">✍ Firmar</button>
       <button class="btn" id="dPdf">⬇ Descargar PDF</button>
       ${carpOK ? '<button class="btn ghost" id="dCarp">📁 Guardar PDF en carpeta del cliente</button>' : ''}
-      <button class="btn ghost" id="dMail">✉ Correo con PDF</button>
+      <button class="btn ghost" id="dMail" title="Descarga un correo nuevo (.eml) con el PDF adjunto: al abrirlo se abre en Outlook">✉ Correo en Outlook</button>
+      <button class="btn ghost" id="dBig" title="Abrir el PDF en una pestaña nueva, a pantalla completa">⛶ Ver en grande</button>
       <button class="btn ghost" id="dClose">Cerrar</button></div>
     <div class="small" style="margin-bottom:8px">A pagar: <b>${uf(E.C)} UF</b> <span class="muted">· referencia en pesos (no va en el documento): ${clp(E.C * P().ufRef)} con la UF del día ${clp2(P().ufRef)}${P().ufFecha ? ' (' + esc(fdate(P().ufFecha)) + ')' : ''}</span></div>
-    <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;height:72vh;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
+    <iframe id="epView" title="Vista previa del estado de pago" style="width:100%;border:1px solid var(--line);border-radius:4px;background:#fff"></iframe>
     <div class="small muted" id="dMsg" style="margin-top:8px">El estado de pago queda registrado en el proyecto al descargarlo, guardarlo o enviarlo (si lo vuelve a emitir hoy, se reemplaza y conserva el número).</div>
   </div></div>`;
   document.body.appendChild(host);
@@ -2638,8 +2671,18 @@ function epSalida(E) {
   const cerrar = () => { host.remove(); if (url) URL.revokeObjectURL(url); };
   host.querySelector('#dClose').onclick = cerrar;
   host.querySelector('.docout-bg').onclick = e => { if (e.target.classList.contains('docout-bg')) cerrar(); };
+  host.querySelector('#dBig').onclick = async () => { try { const b = await getBlob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); } catch (e) { msg('No se pudo abrir el PDF: ' + (e.message || e)); } };
+  const vista = () => { if (url) { URL.revokeObjectURL(url); url = null; } getBlob().then(b => { url = URL.createObjectURL(b); host.querySelector('#epView').src = url + '#view=FitH'; }).catch(e => msg('No se pudo generar el PDF: ' + (e.message || e))); };
+  const fb = host.querySelector('#dFirma'), pintaF = () => { fb.setAttribute('aria-pressed', String(!!E.firmar)); fb.textContent = E.firmar ? '✓ Firmado' : '✍ Firmar'; fb.classList.toggle('ghost', !E.firmar); };
+  try { E.firmar = localStorage.getItem('ep_firmar') === '1' && !!(S.firmaCot && S.firmaCot.png); } catch (e) { E.firmar = false; }
+  pintaF();
+  fb.onclick = () => { if (!E.firmar && !(S.firmaCot && S.firmaCot.png)) { msg('No hay firma guardada en POWER. Cárguela una vez en el Cotizador (Firmar → Cargar firma) y POWER usa la misma.'); return; }
+    E.firmar = !E.firmar; try { localStorage.setItem('ep_firmar', E.firmar ? '1' : '0'); } catch (e) {} pintaF(); blobP = null; vista(); };
   host.querySelector('#dPdf').onclick = conPDF(async b => { const ok = await descargarBlob(b, nom); if (ok) msg('PDF descargado: ' + nom); return ok; });
-  host.querySelector('#dMail').onclick = conPDF(async b => { if (!(await descargarBlob(b, nom))) return false; const a = document.createElement('a'); a.href = 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(nota); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); msg('PDF descargado (' + nom + '). Adjúntelo al correo que se abrió.'); return true; });
+  // Correo: archivo .eml (mensaje nuevo sin enviar, con el PDF adjunto). Al abrirlo, Outlook muestra la ventana de mensaje nuevo; solo falta el destinatario y Enviar.
+  host.querySelector('#dMail').onclick = conPDF(async b => { const eml = epEml(asunto, nota, nom, await blobB64(b));
+    if (!(await descargarBlob(new Blob([eml], {type: 'message/rfc822'}), nom.replace(/\.pdf$/, '.eml')))) return false;
+    msg('Correo listo (' + nom.replace(/\.pdf$/, '.eml') + '): ábralo y Outlook lo muestra como mensaje nuevo con el PDF adjunto; agregue el destinatario y presione Enviar.'); return true; });
   const cb = host.querySelector('#dCarp');
   if (cb) cb.onclick = conPDF(async b => {
     if (!(await ensurePerm(FS.dir))) { toast('Sin permiso para escribir en la carpeta'); return false; }
@@ -2651,7 +2694,7 @@ function epSalida(E) {
   try { const probe = new File([new Blob(['%PDF'], {type: 'application/pdf'})], nom, {type: 'application/pdf'});
     if (navigator.canShare && navigator.canShare({files: [probe]})) { const sb = host.querySelector('#dShare'); sb.hidden = false;
       sb.onclick = conPDF(async b => { try { await navigator.share({files: [new File([b], nom, {type: 'application/pdf'})], title: asunto}); return true; } catch (e) { if (e.name !== 'AbortError') toast('No se pudo compartir; use «Descargar PDF»'); return false; } }); } } catch (e) {}
-  getBlob().then(b => { url = URL.createObjectURL(b); host.querySelector('#epView').src = url; }).catch(e => msg('No se pudo generar el PDF: ' + (e.message || e)));
+  vista();
 }
 const TIPOS_COBRO = ['Total', 'Anticipo', 'Estado de pago', 'Saldo final'];
 function saldoProy(p, rec) { // saldo por facturar sin contar el documento que se edita
